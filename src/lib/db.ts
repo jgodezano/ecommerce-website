@@ -1,0 +1,29 @@
+import Database from "better-sqlite3";
+import path from "path";
+import { createSchema } from "./db-schema";
+
+const DB_PATH = path.join(process.cwd(), "data", "merica.db");
+
+let db: Database.Database | null = null;
+
+export function getDb(): Database.Database {
+  if (!db) {
+    const fs = require("fs");
+    const dir = path.dirname(DB_PATH);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    db = new Database(DB_PATH);
+    db.pragma("journal_mode = WAL");
+    db.pragma("foreign_keys = ON");
+    createSchema(db);
+  }
+  return db;
+}
+
+export function closeDb() {
+  if (db) {
+    db.close();
+    db = null;
+  }
+}

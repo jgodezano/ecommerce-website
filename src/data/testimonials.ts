@@ -1,0 +1,58 @@
+import { Testimonial } from "@/types";
+
+export const testimonials: Testimonial[] = [
+  {
+    id: "t1",
+    name: "Enrico Manalo",
+    company: "Merica House of Rocks",
+    role: "Owner",
+    image: "/images/testimonials/owner-1.jpg",
+    content: "We take pride in providing the finest natural stones and building materials to our customers. Every product we offer is carefully selected to ensure the highest quality for your projects.",
+    rating: 5,
+  },
+  {
+    id: "t2",
+    name: "Myra Manalo",
+    company: "Merica House of Rocks",
+    role: "Co-Owner",
+    image: "/images/testimonials/owner-2.jpg",
+    content: "Our customers trust us for their most important construction and landscaping projects. From residential gardens to commercial developments, we deliver quality that stands the test of time.",
+    rating: 5,
+  },
+  {
+    id: "t3",
+    name: "Carlos Mendoza",
+    company: "Mendoza Construction Corp.",
+    role: "General Contractor",
+    image: "/images/testimonials/contractor-1.jpg",
+    content: "Merica House of Rocks has been our go-to supplier for natural stones and cobblestones. Their product quality is exceptional, and their knowledge of materials is unmatched.",
+    rating: 5,
+  },
+  {
+    id: "t4",
+    name: "Maria Santos",
+    company: "Santos Home Builders",
+    role: "Project Manager",
+    image: "/images/testimonials/developer-1.jpg",
+    content: "We used Piedra Laguna and crazy cut stones from Merica for our flagship project. The natural beauty of their products elevated the entire development. Highly recommended.",
+    rating: 5,
+  },
+  {
+    id: "t5",
+    name: "John Rivera",
+    company: "Rivera Hardware & Supply",
+    role: "Store Owner",
+    image: "/images/testimonials/hardware-1.jpg",
+    content: "As a retailer, I appreciate Merica's consistent quality and reliable supply. Their pebbles and bricks are always in demand, and their wholesale pricing keeps my business competitive.",
+    rating: 4,
+  },
+  {
+    id: "t6",
+    name: "Ana Torres",
+    company: "Torres Landscaping",
+    role: "Landscape Contractor",
+    image: "/images/testimonials/contractor-2.jpg",
+    content: "The variety of pebbles and natural stones from Merica House of Rocks is incredible. Seven Colors pebbles are a favorite among my clients. Always professional service.",
+    rating: 4,
+  },
+];
