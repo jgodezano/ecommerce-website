@@ -6,6 +6,9 @@ interface AdminUser {
   id: string;
   email: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
   role: string;
 }
 

@@ -34,41 +34,41 @@ export default function GalleryPage() {
     const defaultProjects: GalleryProject[] = [
       {
         id: "proj-1",
-        title: "Modern Garden Pathway",
-        description: "Beautiful crazy cut stone pathway with granite borders for a residential garden in Lipa. Creates a natural, elegant walkway that complements any landscape design.",
+        title: "Amethyst Geode Collection Display",
+        description: "A stunning collection of Uruguayan amethyst geodes and slices arranged for a crystal shop display. Each piece showcases deep purple crystals with natural agate banding.",
         materialsUsed: [
-          { productId: "crazy-cut-1", name: "Crazy Cut Stone - Grey", quantity: 150, unit: "pc" },
-          { productId: "granite-1", name: "Granite Tile - Grey", quantity: 30, unit: "pc" },
+          { productId: "amethyst-geode-slice", name: "Amethyst Geode Slice", quantity: 15, unit: "pc" },
+          { productId: "amethyst-cluster", name: "Amethyst Crystal Cluster", quantity: 8, unit: "pc" },
         ],
         totalCost: 45000,
       },
       {
         id: "proj-2",
-        title: "Commercial Building Facade",
-        description: "Elegant wall cladding using natural stone veneers for a commercial building facade. Provides a premium, professional look that attracts customers and clients.",
+        title: "Museum-Quality Fossil Exhibit",
+        description: "Curated fossil collection featuring ammonites, trilobites, and petrified wood for a museum display. Each specimen is carefully selected for its preservation quality.",
         materialsUsed: [
-          { productId: "veneer-1", name: "Stone Veneer - Grey", quantity: 200, unit: "pc" },
-          { productId: "adobe-1", name: "Adobe Block - Red", quantity: 500, unit: "pc" },
+          { productId: "ammonite-fossil", name: "Ammonite Fossil", quantity: 12, unit: "pc" },
+          { productId: "trilobite-fossil", name: "Trilobite Fossil", quantity: 6, unit: "pc" },
         ],
         totalCost: 180000,
       },
       {
         id: "proj-3",
-        title: "Driveway Pavers Installation",
-        description: "Durable interlocking pavers for a residential driveway with proper base preparation. Designed to withstand heavy vehicle traffic while maintaining a stylish appearance.",
+        title: "Crystal Jewelry Collection Launch",
+        description: "Handcrafted gemstone jewelry set featuring amethyst, rose quartz, and labradorite pieces for a boutique launch. A coordinated collection of bracelets and pendants.",
         materialsUsed: [
-          { productId: "pavers-1", name: "Pavers - Hexagon", quantity: 300, unit: "pc" },
-          { productId: "gravel-1", name: "Gravel - 3/4-inch", quantity: 5, unit: "cu.m." },
+          { productId: "amethyst-bracelet", name: "Amethyst Beaded Bracelet", quantity: 30, unit: "pc" },
+          { productId: "labradorite-bracelet", name: "Labradorite Beaded Bracelet", quantity: 20, unit: "pc" },
         ],
         totalCost: 95000,
       },
       {
         id: "proj-4",
-        title: "Retaining Wall with Cobblestones",
-        description: "Strong and attractive retaining wall built with premium cobblestones. Perfect for sloped properties requiring erosion control and aesthetic landscaping.",
+        title: "Polished Gemstone Showcase",
+        description: "An elegant showcase of polished cabochons and faceted gemstones including labradorite, moonstone, and lapis lazuli. Perfect for a jewelry designer's studio.",
         materialsUsed: [
-          { productId: "cobblestone-1", name: "Cobblestone - Black", quantity: 400, unit: "pc" },
-          { productId: "gravel-1", name: "Gravel - 3/4-inch", quantity: 3, unit: "cu.m." },
+          { productId: "labradorite-cabochon", name: "Labradorite Cabochon", quantity: 50, unit: "pc" },
+          { productId: "moonstone-cabochon", name: "Moonstone Cabochon", quantity: 30, unit: "pc" },
         ],
         totalCost: 78000,
       },
@@ -111,9 +111,9 @@ export default function GalleryPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="text-center mb-10">
-        <h1 className="text-3xl sm:text-4xl font-bold text-primary-900">Project Inspiration Gallery</h1>
+        <h1 className="text-3xl sm:text-4xl font-bold text-primary-900">Collection Inspiration Gallery</h1>
         <p className="text-primary-500 mt-3 max-w-2xl mx-auto">
-          Browse our completed projects for inspiration. Click &quot;Use This Design&quot; to automatically add the required materials to your cart.
+          Browse our curated collections for inspiration. Click &quot;Use This Design&quot; to automatically add the required items to your quote.
         </p>
       </div>
 
@@ -125,7 +125,7 @@ export default function GalleryPage() {
           >
             <div className="h-48 bg-gradient-to-br from-primary-100 to-primary-200 flex items-center justify-center">
               <span className="text-6xl opacity-30">
-                {project.id === "proj-1" ? "🌿" : project.id === "proj-2" ? "🏢" : project.id === "proj-3" ? "🚗" : "🧱"}
+                {project.id === "proj-1" ? "💎" : project.id === "proj-2" ? "🦕" : project.id === "proj-3" ? "📿" : "💠"}
               </span>
             </div>
 
@@ -134,7 +134,7 @@ export default function GalleryPage() {
               <p className="text-sm text-primary-500 mt-2 leading-relaxed">{project.description}</p>
 
               <div className="mt-4">
-                <h3 className="text-xs font-semibold text-primary-700 uppercase tracking-wider mb-2">Materials Used</h3>
+                <h3 className="text-xs font-semibold text-primary-700 uppercase tracking-wider mb-2">Items Used</h3>
                 <div className="space-y-1.5">
                   {project.materialsUsed.map((mat, i) => (
                     <div key={i} className="flex justify-between text-sm">
@@ -147,11 +147,11 @@ export default function GalleryPage() {
 
               <div className="mt-4 pt-4 border-t border-primary-100 flex items-center justify-between">
                 <div>
-                  <span className="text-xs text-primary-500">Estimated Project Cost</span>
+                  <span className="text-xs text-primary-500">Estimated Total Value</span>
                   <p className="text-xl font-bold text-accent-600">{formatPrice(project.totalCost)}</p>
                 </div>
                 <Button onClick={() => useThisDesign(project)}>
-                  Use This Design
+                  Use This Collection
                 </Button>
               </div>
             </div>
@@ -161,7 +161,7 @@ export default function GalleryPage() {
 
       <div className="mt-12 text-center">
         <p className="text-sm text-primary-500 mb-4">
-          Have a project in mind? Use our Project Estimator for a custom calculation.
+          Have a collection in mind? Use our Project Estimator for a custom quotation.
         </p>
         <Link href="/estimator">
           <Button variant="outline">Try Project Estimator</Button>

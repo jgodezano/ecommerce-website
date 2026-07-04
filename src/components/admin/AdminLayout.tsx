@@ -12,8 +12,10 @@ const sidebarLinks = [
   { label: "Orders", href: "/admin/orders", icon: "🛒" },
   { label: "Quotes", href: "/admin/quotes", icon: "📄" },
   { label: "Customers", href: "/admin/customers", icon: "👥" },
+  { label: "Verify", href: "/admin/verify-customers", icon: "✅" },
   { label: "Reports", href: "/admin/reports", icon: "📈" },
   { label: "Delivery", href: "/admin/delivery", icon: "🚚" },
+  { label: "Profile", href: "/admin/profile", icon: "👤" },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -28,7 +30,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="p-4 border-b border-gray-800">
             <Link href="/admin" className="flex items-center gap-2">
               <div className="w-8 h-8 bg-accent-500 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">BM</span>
+                <span className="text-white font-bold text-sm">MR</span>
               </div>
               <div>
                 <span className="text-white font-bold text-sm">Admin Panel</span>
@@ -68,7 +70,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <header className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
             <Link href="/admin" className="flex items-center gap-2">
               <div className="w-8 h-8 bg-accent-500 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">BM</span>
+                <span className="text-white font-bold text-sm">MR</span>
               </div>
               <span className="font-bold text-gray-900 text-sm">Admin</span>
             </Link>

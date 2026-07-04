@@ -15,7 +15,7 @@
   }
 
   ::selection {
-    @apply bg-accent-500/20 text-accent-900;
+    @apply bg-primary-500/20 text-primary-900;
   }
 
   ::-webkit-scrollbar {
@@ -27,11 +27,11 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-gray-300 rounded-full;
+    @apply bg-primary-300 rounded-full;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-gray-400;
+    @apply bg-primary-400;
   }
 }
 
@@ -55,6 +55,18 @@
   .heading-3 {
     @apply text-2xl sm:text-3xl font-bold;
   }
+
+  .gem-gradient {
+    @apply bg-gradient-to-br from-primary-500 via-primary-600 to-primary-800;
+  }
+
+  .gem-gradient-light {
+    @apply bg-gradient-to-br from-primary-50 via-white to-gem-50;
+  }
+
+  .gold-gradient {
+    @apply bg-gradient-to-r from-accent-400 via-accent-500 to-accent-600;
+  }
 }
 
 @layer utilities {
@@ -70,16 +82,26 @@
   }
 
   .bg-grid {
-    background-image: linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px);
+    background-image: linear-gradient(rgba(139,92,246,.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(139,92,246,.05) 1px, transparent 1px);
     background-size: 40px 40px;
+  }
+
+  .crystal-shine {
+    background: linear-gradient(135deg, transparent 30%, rgba(255,255,255,0.3) 50%, transparent 70%);
+    background-size: 200% 200%;
+    animation: shine 3s ease-in-out infinite;
   }
 }
 
-/* Slide-down animation */
 @keyframes slideDown {
   from { opacity: 0; transform: translateY(-8px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shine {
+  0% { background-position: 200% 200%; }
+  100% { background-position: -200% -200%; }
 }
 
 .animate-slide-down {

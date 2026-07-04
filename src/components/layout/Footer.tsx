@@ -22,13 +22,12 @@ export default function Footer() {
 
   return (
     <footer className="bg-primary-900 text-primary-300">
-      {/* NEWSLETTER */}
       <div className="border-b border-primary-800">
         <div className="max-w-7xl mx-auto px-4 py-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div>
               <h3 className="text-white font-bold text-lg">Stay Updated</h3>
-              <p className="text-sm text-primary-400">Get the latest promos and new products delivered to your inbox</p>
+              <p className="text-sm text-primary-400">Get the latest crystal arrivals and promos delivered to your inbox</p>
             </div>
             <form className="flex w-full sm:w-auto gap-2" onSubmit={(e) => e.preventDefault()}>
               <input
@@ -44,10 +43,8 @@ export default function Footer() {
         </div>
       </div>
 
-      {/* MAIN FOOTER */}
       <div className="max-w-7xl mx-auto px-4 py-12 lg:py-16">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8 lg:gap-10">
-          {/* Company */}
           <div className="sm:col-span-2 lg:col-span-1">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-9 h-9 bg-accent-500 rounded-lg flex items-center justify-center">
@@ -59,7 +56,7 @@ export default function Footer() {
               </div>
             </div>
             <p className="text-sm text-primary-400 leading-relaxed mb-4">
-              Your trusted supplier of premium natural stones and construction materials in Lipa City, Batangas. Quality products for residential and commercial projects.
+              Your trusted source for authentic crystals, gemstones, minerals, and fossils in Lipa City, Batangas. Quality specimens for collectors, jewelers, and crystal enthusiasts.
             </p>
             <div className="flex items-center gap-2">
               <a href="https://www.facebook.com/Merica-House-of-Rocks-536319069905155/" target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-lg bg-primary-800 flex items-center justify-center text-xs font-bold text-primary-400 hover:bg-accent-500 hover:text-white transition-all">
@@ -68,7 +65,6 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Categories */}
           <div>
             <h3 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Categories</h3>
             <ul className="space-y-2">
@@ -82,7 +78,6 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Customer Service */}
           <div>
             <h3 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Customer Service</h3>
             <ul className="space-y-2">
@@ -95,7 +90,6 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Contact */}
           <div>
             <h3 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Contact Us</h3>
             <ul className="space-y-3">
@@ -118,7 +112,6 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Business Hours */}
           <div>
             <h3 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Store Hours</h3>
             <ul className="space-y-2 text-sm text-primary-400">
@@ -138,7 +131,6 @@ export default function Footer() {
         </div>
       </div>
 
-      {/* BOTTOM */}
       <div className="border-t border-primary-800">
         <div className="max-w-7xl mx-auto px-4 py-5 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-xs text-primary-500">&copy; {currentYear} Merica House of Rocks. All rights reserved.</p>

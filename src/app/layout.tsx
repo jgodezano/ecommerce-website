@@ -3,35 +3,36 @@ import { CartProvider } from "@/context/CartContext";
 import { StockProvider } from "@/context/StockContext";
 import { AdminAuthProvider } from "@/context/AdminAuthContext";
 import { CustomerAuthProvider } from "@/context/CustomerAuthContext";
+import { QuoteProvider } from "@/context/QuoteContext";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import CartSidebar from "@/components/cart/CartSidebar";
+import QuoteSidebar from "@/components/quote/QuoteSidebar";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Merica House of Rocks - Premium Natural Stones, Bricks & Construction Materials",
+    default: "Merica House of Rocks - Premium Crystals, Gemstones & Fossils",
     template: "%s | Merica House of Rocks",
   },
   description:
-    "Your trusted supplier of crazy cut stones, granite, pebbles, bricks, cobblestones, adobe, and Vigan tiles in Lipa City, Batangas. Premium natural stone products for construction and landscaping.",
+    "Your trusted source for authentic crystals, gemstones, minerals, fossils, and crystal jewelry in Lipa City, Batangas. Quality specimens for collectors, jewelers, and crystal enthusiasts.",
   keywords: [
-    "natural stones",
-    "crazy cut stones",
-    "granite",
-    "pebbles",
-    "bricks",
-    "cobblestones",
-    "adobe",
-    "Vigan tiles",
-    "construction materials",
-    "landscaping",
+    "crystals",
+    "gemstones",
+    "minerals",
+    "fossils",
+    "amethyst",
+    "rose quartz",
+    "labradorite",
+    "crystal jewelry",
+    "tumbled stones",
+    "geodes",
     "Lipa City",
     "Batangas",
   ],
   openGraph: {
     title: "Merica House of Rocks",
-    description: "Your trusted supplier of premium natural stones and construction materials in Lipa City, Batangas.",
+    description: "Your trusted source for authentic crystals, gemstones, minerals, and fossils in Lipa City, Batangas.",
     type: "website",
     locale: "en_PH",
   },
@@ -45,18 +46,20 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen flex flex-col">
-        <AdminAuthProvider>
-          <CustomerAuthProvider>
-            <StockProvider>
-              <CartProvider>
-                <Header />
-                <CartSidebar />
-                <main className="flex-1">{children}</main>
-                <Footer />
-              </CartProvider>
-            </StockProvider>
-          </CustomerAuthProvider>
-        </AdminAuthProvider>
+        <CartProvider>
+          <StockProvider>
+            <QuoteProvider>
+              <CustomerAuthProvider>
+                <AdminAuthProvider>
+                  <Header />
+                  <main className="flex-1">{children}</main>
+                  <QuoteSidebar />
+                  <Footer />
+                </AdminAuthProvider>
+              </CustomerAuthProvider>
+            </QuoteProvider>
+          </StockProvider>
+        </CartProvider>
       </body>
     </html>
   );

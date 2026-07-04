@@ -11,20 +11,22 @@ export function seedDatabase() {
 
   const userCount = (db.prepare("SELECT COUNT(*) as count FROM users").get() as any).count;
   if (userCount > 0) {
+    db.prepare("UPDATE users SET account_status = 'approved' WHERE role = 'admin'").run();
+    db.prepare("UPDATE users SET account_status = 'approved' WHERE role = 'customer' AND account_status IS NULL").run();
     return;
   }
 
   const adminId = crypto.randomUUID();
   const adminHash = bcrypt.hashSync("admin123", 12);
   db.prepare(
-    "INSERT INTO users (id, email, password_hash, name, first_name, last_name, role) VALUES (?, ?, ?, ?, ?, ?, ?)"
-  ).run(adminId, "admin@mericahouseofrocks.ph", adminHash, "Admin", "Admin", "", "admin");
+    "INSERT INTO users (id, email, username, password_hash, name, first_name, last_name, role, account_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'approved')"
+  ).run(adminId, "admin@mericahouseofrocks.ph", "admin", adminHash, "Admin", "Admin", "", "admin");
 
   const demoId = crypto.randomUUID();
   const demoHash = bcrypt.hashSync("demo123", 12);
   db.prepare(
-    "INSERT INTO users (id, email, password_hash, name, first_name, last_name, role) VALUES (?, ?, ?, ?, ?, ?, ?)"
-  ).run(demoId, "demo@mericahouseofrocks.ph", demoHash, "Demo User", "Demo", "User", "customer");
+    "INSERT INTO users (id, email, username, password_hash, name, first_name, last_name, role, account_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'approved')"
+  ).run(demoId, "demo@mericahouseofrocks.ph", "demo", demoHash, "Demo User", "Demo", "User", "customer");
 
   const insertCategory = db.prepare(
     "INSERT INTO categories (id, name, slug, description, image, featured, product_count) VALUES (?, ?, ?, ?, ?, ?, ?)"
@@ -65,29 +67,29 @@ export function seedDatabase() {
 
   const galleryProjects = [
     {
-      title: "Modern Garden Pathway",
-      description: "Beautiful crazy cut stone pathway with granite borders for a residential garden in Lipa.",
+      title: "Amethyst Geode Collection Display",
+      description: "A stunning collection of Uruguayan amethyst geodes and slices arranged for a crystal shop display in Lipa.",
       materials_used: [
-        { productId: "crazy-cut-1", name: "Crazy Cut Stone - Grey", quantity: 150, unit: "pc" },
-        { productId: "granite-1", name: "Granite Tile - Grey", quantity: 30, unit: "pc" },
+        { productId: "amethyst-geode-slice", name: "Amethyst Geode Slice", quantity: 15, unit: "pc" },
+        { productId: "amethyst-cluster", name: "Amethyst Crystal Cluster", quantity: 8, unit: "pc" },
       ],
       total_cost: 45000,
     },
     {
-      title: "Commercial Building Facade",
-      description: "Elegant wall cladding using natural stone veneers for a commercial building facade.",
+      title: "Museum-Quality Fossil Exhibit",
+      description: "Curated fossil collection featuring ammonites, trilobites, and petrified wood for a museum display.",
       materials_used: [
-        { productId: "veneer-1", name: "Stone Veneer - Grey", quantity: 200, unit: "pc" },
-        { productId: "adobe-1", name: "Adobe Block - Red", quantity: 500, unit: "pc" },
+        { productId: "ammonite-fossil", name: "Ammonite Fossil", quantity: 12, unit: "pc" },
+        { productId: "trilobite-fossil", name: "Trilobite Fossil", quantity: 6, unit: "pc" },
       ],
       total_cost: 180000,
     },
     {
-      title: "Driveway Pavers Installation",
-      description: "Durable interlocking pavers for a residential driveway with proper base preparation.",
+      title: "Crystal Jewelry Collection Launch",
+      description: "Handcrafted gemstone jewelry set featuring amethyst, rose quartz, and labradorite pieces for a boutique launch.",
       materials_used: [
-        { productId: "pavers-1", name: "Pavers - Hexagon", quantity: 300, unit: "pc" },
-        { productId: "gravel-1", name: "Gravel - 3/4-inch", quantity: 5, unit: "cu.m." },
+        { productId: "amethyst-bracelet", name: "Amethyst Beaded Bracelet", quantity: 30, unit: "pc" },
+        { productId: "labradorite-bracelet", name: "Labradorite Beaded Bracelet", quantity: 20, unit: "pc" },
       ],
       total_cost: 95000,
     },

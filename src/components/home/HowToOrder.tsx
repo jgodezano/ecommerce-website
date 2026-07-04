@@ -6,27 +6,27 @@ export default function HowToOrder() {
   const steps = [
     {
       number: "01",
-      title: "Choose Your Products",
-      description: "Browse our categories or use the search bar to find the products you need. Check specifications, sizes, and pricing.",
-      icon: "🛍️",
+      title: "Browse Our Collection",
+      description: "Explore our categories of crystals, gemstones, fossils, and jewelry. Each piece is carefully selected for quality.",
+      icon: "🔮",
     },
     {
       number: "02",
-      title: "Place Your Order",
-      description: "Call us at (02) 8706-4663, add items to your cart for online checkout, or submit a bulk quotation request.",
-      icon: "📞",
+      title: "Select & Quote",
+      description: "Add items to your quote request or contact us directly. We provide detailed quotations within 24 hours.",
+      icon: "📋",
     },
     {
       number: "03",
-      title: "Settle Payment",
-      description: "Pay via bank transfer, GCash, credit card, or cash on delivery. We accept multiple payment methods for your convenience.",
+      title: "Secure Payment",
+      description: "Pay via bank transfer, GCash, credit card, or cash on delivery. Multiple payment options for your convenience.",
       icon: "💳",
     },
     {
       number: "04",
-      title: "Delivery or Pickup",
-      description: "Choose delivery to your site (nationwide) or pickup at any of our branches. Track your order in real-time.",
-      icon: "🚚",
+      title: "Carefully Packed & Shipped",
+      description: "Every specimen is expertly packed with protective materials. Nationwide delivery with tracking available.",
+      icon: "📦",
     },
   ];
 
@@ -35,7 +35,7 @@ export default function HowToOrder() {
       <div className="max-w-7xl mx-auto px-4">
         <div className="text-center mb-10">
           <h2 className="text-2xl font-bold text-gray-900">How to Order</h2>
-          <p className="text-gray-500 mt-2 max-w-xl mx-auto">Simple and convenient ways to get the materials you need</p>
+          <p className="text-gray-500 mt-2 max-w-xl mx-auto">Simple steps to get the gemstones you love</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -52,7 +52,7 @@ export default function HowToOrder() {
         <div className="text-center mt-8">
           <p className="text-sm text-gray-500">
             Need help? Call us:{" "}
-            <a href="tel:+639209234354" className="text-accent-600 font-semibold hover:text-accent-700">0920 923 4354</a>
+            <a href="tel:+639209234354" className="text-primary-600 font-semibold hover:text-primary-700">0920 923 4354</a>
           </p>
         </div>
       </div>

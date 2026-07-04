@@ -1,12 +1,10 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Product } from "@/types";
-import { useCart } from "@/context/CartContext";
 import { useCustomerAuth } from "@/context/CustomerAuthContext";
-import { useStock } from "@/context/StockContext";
+import { useQuote } from "@/context/QuoteContext";
 import { formatPrice } from "@/lib/utils";
 
 interface ProductCardProps {
@@ -14,49 +12,27 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
-  const { addItem, toggleCart } = useCart();
   const { isAuthenticated: isCustomerAuth } = useCustomerAuth();
-  const { checkAvailability } = useStock();
+  const { addItem, toggleQuote } = useQuote();
   const router = useRouter();
-  const [error, setError] = useState("");
-
   const selectedSize = product.sizes[0];
-  const sizeName = selectedSize?.name || "Standard";
-  const { available, currentStock } = checkAvailability(product.id, 1, sizeName);
-  const stockStatus = currentStock <= 0 ? "out_of_stock" : currentStock <= 50 ? "low_stock" : "in_stock";
+  const stockStatus = (product.stock || 0) <= 0 ? "out_of_stock" : (product.stock || 0) <= 50 ? "low_stock" : "in_stock";
 
-  const handleAddToCart = () => {
+  const handleAddToQuote = () => {
     if (!isCustomerAuth) {
-      sessionStorage.setItem("pendingCartItem", JSON.stringify({
-        id: `${product.id}-${sizeName}`,
-        productId: product.id,
-        name: product.name,
-        image: product.images[0],
-        size: sizeName,
-        quantity: 1,
-        unitPrice: product.price,
-        totalPrice: product.price,
-      }));
-      router.push(`/login?redirect=/products/${product.slug}`);
-      return;
-    }
-    setError("");
-    const { available: canAdd } = checkAvailability(product.id, 1, sizeName);
-    if (!canAdd) {
-      setError("Out of stock");
+      router.push(`/login?redirect=/quote?product=${product.slug}`);
       return;
     }
     addItem({
-      id: `${product.id}-${sizeName}`,
       productId: product.id,
-      name: product.name,
-      image: product.images[0],
-      size: sizeName,
+      productName: product.name,
+      slug: product.slug,
+      image: product.images?.[0] || "",
       quantity: 1,
-      unitPrice: product.price,
-      totalPrice: product.price,
+      notes: "",
+      price: product.price,
     });
-    toggleCart();
+    toggleQuote();
   };
 
   return (
@@ -64,7 +40,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       <Link href={`/products/${product.slug}`}>
         <div className="relative aspect-square bg-gray-50 overflow-hidden">
           <div className="w-full h-full flex items-center justify-center">
-            <span className="text-6xl opacity-20 group-hover:scale-110 transition-transform duration-500">🧱</span>
+            <span className="text-6xl opacity-20 group-hover:scale-110 transition-transform duration-500">💎</span>
           </div>
           <div className="absolute top-2 left-2 flex flex-col gap-1">
             {product.bestSeller && (
@@ -98,7 +74,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             stockStatus === "low_stock" ? "text-yellow-600 bg-yellow-50" :
             "text-red-600 bg-red-50"
           }`}>
-            {stockStatus === "in_stock" ? "In Stock" : stockStatus === "low_stock" ? `${currentStock} left` : "Sold Out"}
+            {stockStatus === "in_stock" ? "In Stock" : stockStatus === "low_stock" ? `${product.stock} left` : "Sold Out"}
           </span>
         </div>
 
@@ -108,27 +84,13 @@ export default function ProductCard({ product }: ProductCardProps) {
           </p>
         )}
 
-        {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
-
-        <div className="flex gap-2 mt-3">
+        <div className="mt-3">
           <button
-            onClick={handleAddToCart}
+            onClick={handleAddToQuote}
             disabled={stockStatus === "out_of_stock"}
-            className="flex-1 px-3 py-2 bg-accent-500 text-white text-xs font-semibold rounded-lg hover:bg-accent-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full px-3 py-2 bg-accent-500 text-white text-xs font-semibold rounded-lg hover:bg-accent-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {stockStatus === "out_of_stock" ? "Out of Stock" : "Add to Cart"}
-          </button>
-          <button
-            onClick={() => {
-              if (!isCustomerAuth) {
-                router.push(`/login?redirect=/quote?product=${product.slug}`);
-              } else {
-                router.push(`/quote?product=${product.slug}`);
-              }
-            }}
-            className="px-3 py-2 border border-gray-300 text-gray-600 text-xs font-semibold rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-colors"
-          >
-            Quote
+            {stockStatus === "out_of_stock" ? "Out of Stock" : "Add to Quote"}
           </button>
         </div>
       </div>

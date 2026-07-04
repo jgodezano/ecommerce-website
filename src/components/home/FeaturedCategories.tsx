@@ -12,7 +12,7 @@ interface Category {
   featured: boolean;
 }
 
-const EMOJIS = ["🧱", "🧱", "🪨", "📋", "🧱"];
+const EMOJIS = ["💎", "🔮", "📿", "🪨", "🧬"];
 
 export default function FeaturedCategories() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -33,7 +33,7 @@ export default function FeaturedCategories() {
           <span className="text-sm font-semibold text-accent-600 uppercase tracking-wider">Categories</span>
           <h2 className="heading-2 text-primary-900 mt-2">Shop by Category</h2>
           <p className="text-primary-500 mt-3 max-w-2xl mx-auto">
-            Browse our extensive range of construction materials organized by category
+            Browse our curated collection of crystals, gemstones, and mineral specimens
           </p>
         </div>
 

@@ -1,16 +1,26 @@
 import type Database from "better-sqlite3";
 
+function columnExists(db: Database.Database, table: string, column: string): boolean {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  return cols.some((c) => c.name === column);
+}
+
 export function createSchema(db: Database.Database) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       email TEXT UNIQUE NOT NULL,
+      username TEXT UNIQUE NOT NULL DEFAULT '',
       password_hash TEXT NOT NULL,
       name TEXT NOT NULL,
       first_name TEXT NOT NULL DEFAULT '',
       last_name TEXT NOT NULL DEFAULT '',
       role TEXT NOT NULL DEFAULT 'customer' CHECK(role IN ('admin','customer')),
       phone TEXT DEFAULT '',
+      company_name TEXT DEFAULT '',
+      account_status TEXT NOT NULL DEFAULT 'pending' CHECK(account_status IN ('pending','approved','rejected','suspended')),
+      identity_document TEXT DEFAULT '',
+      rejection_reason TEXT DEFAULT '',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -18,6 +28,15 @@ export function createSchema(db: Database.Database) {
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS password_resets (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      used INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -89,7 +108,7 @@ export function createSchema(db: Database.Database) {
       id TEXT PRIMARY KEY,
       quote_number TEXT UNIQUE NOT NULL,
       customer_id TEXT NOT NULL REFERENCES users(id),
-      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','reviewed','approved','rejected','converted')),
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','processing','quoted','accepted','rejected')),
       items TEXT NOT NULL DEFAULT '[]',
       notes TEXT DEFAULT '',
       project_details TEXT DEFAULT '{}',
@@ -152,4 +171,20 @@ export function createSchema(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
     CREATE INDEX IF NOT EXISTS idx_stock_movements_product ON stock_movements(product_id);
   `);
+
+  const migrations: [string, string, string][] = [
+    ["users", "username", "ALTER TABLE users ADD COLUMN username TEXT UNIQUE NOT NULL DEFAULT ''"],
+    ["users", "company_name", "ALTER TABLE users ADD COLUMN company_name TEXT DEFAULT ''"],
+    ["users", "account_status", "ALTER TABLE users ADD COLUMN account_status TEXT NOT NULL DEFAULT 'approved'"],
+    ["users", "identity_document", "ALTER TABLE users ADD COLUMN identity_document TEXT DEFAULT ''"],
+    ["users", "rejection_reason", "ALTER TABLE users ADD COLUMN rejection_reason TEXT DEFAULT ''"],
+  ];
+
+  for (const [table, column, sql] of migrations) {
+    if (!columnExists(db, table, column)) {
+      try {
+        db.exec(sql);
+      } catch {}
+    }
+  }
 }

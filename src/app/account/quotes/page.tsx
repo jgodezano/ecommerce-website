@@ -43,10 +43,10 @@ export default function QuotesPage() {
 
   const statusColors: Record<string, string> = {
     pending: "text-yellow-600 bg-yellow-50",
-    reviewed: "text-blue-600 bg-blue-50",
-    approved: "text-green-600 bg-green-50",
+    processing: "text-blue-600 bg-blue-50",
+    quoted: "text-purple-600 bg-purple-50",
+    accepted: "text-green-600 bg-green-50",
     rejected: "text-red-600 bg-red-50",
-    converted: "text-purple-600 bg-purple-50",
   };
 
   return (

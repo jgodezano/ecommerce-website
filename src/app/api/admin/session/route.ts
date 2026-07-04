@@ -24,7 +24,12 @@ export async function POST(req: NextRequest) {
         user: {
           id: result.user.id,
           email: result.user.email,
+          username: result.user.username,
           name: result.user.name,
+          firstName: result.user.first_name,
+          lastName: result.user.last_name,
+          phone: result.user.phone || "",
+          companyName: result.user.company_name || "",
           role: result.user.role,
         },
       });

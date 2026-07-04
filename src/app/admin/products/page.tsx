@@ -40,6 +40,7 @@ export default function AdminProductsPage() {
   const [form, setForm] = useState({
     name: "", sku: "", categoryId: "", description: "", price: "", stock: "",
     stockStatus: "in_stock", unit: "pc", weight: "", materialType: "",
+    featured: false, images: "",
   });
 
   const fetchProducts = () => {
@@ -66,7 +67,7 @@ export default function AdminProductsPage() {
   const openAdd = () => {
     setMode("add");
     setEditId(null);
-    setForm({ name: "", sku: "", categoryId: "", description: "", price: "", stock: "", stockStatus: "in_stock", unit: "pc", weight: "", materialType: "" });
+    setForm({ name: "", sku: "", categoryId: "", description: "", price: "", stock: "", stockStatus: "in_stock", unit: "pc", weight: "", materialType: "", featured: false, images: "" });
   };
 
   const openEdit = (product: Product) => {
@@ -76,6 +77,7 @@ export default function AdminProductsPage() {
       name: product.name, sku: product.sku || "", categoryId: "",
       description: "", price: String(product.price), stock: String(product.stock),
       stockStatus: product.stock_status, unit: "pc", weight: "", materialType: "",
+      featured: !!product.featured, images: "",
     });
     // Fetch full product details for edit
     fetch(`/api/products?id=${product.id}`)
@@ -89,6 +91,8 @@ export default function AdminProductsPage() {
             unit: data.product.unit || "pc",
             weight: data.product.weight || "",
             materialType: data.product.material_type || "",
+            featured: !!data.product.featured,
+            images: (data.product.images || []).join(", "),
           }));
         }
       })
@@ -98,6 +102,9 @@ export default function AdminProductsPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
+      const imagesArray = form.images
+        ? form.images.split(",").map((s) => s.trim()).filter(Boolean)
+        : [];
       const body = {
         ...(mode === "edit" ? { productId: editId } : {}),
         name: form.name,
@@ -110,6 +117,8 @@ export default function AdminProductsPage() {
         unit: form.unit,
         weight: form.weight,
         materialType: form.materialType,
+        featured: form.featured,
+        images: imagesArray,
       };
 
       const res = await fetch("/api/admin/products", {
@@ -185,10 +194,16 @@ export default function AdminProductsPage() {
                 <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
                   rows={3} className="w-full rounded-lg border border-primary-300 px-3 py-2 text-sm focus:outline-none focus:border-accent-500" />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-primary-700 mb-1">Image URLs (comma-separated)</label>
+                <input value={form.images} onChange={(e) => setForm({ ...form, images: e.target.value })}
+                  placeholder="/images/products/example.jpg, /images/products/example2.jpg"
+                  className="w-full rounded-lg border border-primary-300 px-3 py-2 text-sm focus:outline-none focus:border-accent-500" />
+              </div>
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-primary-700 mb-1">Price</label>
-                  <input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })}
+                  <label className="block text-sm font-medium text-primary-700 mb-1">Price (₱)</label>
+                  <input type="number" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })}
                     className="w-full rounded-lg border border-primary-300 px-3 py-2 text-sm focus:outline-none focus:border-accent-500" />
                 </div>
                 <div>
@@ -201,10 +216,10 @@ export default function AdminProductsPage() {
                   <select value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })}
                     className="w-full rounded-lg border border-primary-300 px-3 py-2 text-sm bg-white focus:outline-none focus:border-accent-500">
                     <option value="pc">Piece</option>
-                    <option value="cu.m.">Cubic Meter</option>
-                    <option value="sq.m.">Square Meter</option>
                     <option value="kg">Kilogram</option>
+                    <option value="set">Set</option>
                     <option value="bag">Bag</option>
+                    <option value="gram">Gram</option>
                   </select>
                 </div>
               </div>
@@ -222,8 +237,20 @@ export default function AdminProductsPage() {
                 <div>
                   <label className="block text-sm font-medium text-primary-700 mb-1">Material Type</label>
                   <input value={form.materialType} onChange={(e) => setForm({ ...form, materialType: e.target.value })}
+                    placeholder="e.g. Quartz, Feldspar, Fossil"
                     className="w-full rounded-lg border border-primary-300 px-3 py-2 text-sm focus:outline-none focus:border-accent-500" />
                 </div>
+              </div>
+              <div className="flex items-center gap-3 pt-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.featured}
+                    onChange={(e) => setForm({ ...form, featured: e.target.checked })}
+                    className="rounded border-primary-300 text-accent-500 focus:ring-accent-500"
+                  />
+                  <span className="text-sm font-medium text-primary-700">Featured Product</span>
+                </label>
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-6">

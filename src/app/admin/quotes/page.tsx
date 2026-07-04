@@ -19,18 +19,18 @@ interface Quote {
 
 const STATUS_OPTIONS = [
   { value: "pending", label: "Pending" },
-  { value: "reviewed", label: "Reviewed" },
-  { value: "approved", label: "Approved" },
+  { value: "processing", label: "Processing" },
+  { value: "quoted", label: "Quoted" },
+  { value: "accepted", label: "Accepted" },
   { value: "rejected", label: "Rejected" },
-  { value: "converted", label: "Converted to Order" },
 ];
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "text-yellow-600 bg-yellow-50",
-  reviewed: "text-blue-600 bg-blue-50",
-  approved: "text-green-600 bg-green-50",
+  processing: "text-blue-600 bg-blue-50",
+  quoted: "text-purple-600 bg-purple-50",
+  accepted: "text-green-600 bg-green-50",
   rejected: "text-red-600 bg-red-50",
-  converted: "text-purple-600 bg-purple-50",
 };
 
 export default function AdminQuotesPage() {

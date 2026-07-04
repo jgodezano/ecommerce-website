@@ -2,13 +2,13 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { useCart } from "@/context/CartContext";
 import { useCustomerAuth } from "@/context/CustomerAuthContext";
+import { useQuote } from "@/context/QuoteContext";
 import { cn } from "@/lib/utils";
 import {
   Bars3Icon,
   XMarkIcon,
-  ShoppingCartIcon,
+  DocumentTextIcon,
   UserIcon,
   MagnifyingGlassIcon,
   ChevronDownIcon,
@@ -43,8 +43,8 @@ export default function Header() {
 
   const topCategories = categories.filter((c) => c.featured);
   const otherCategories = categories.filter((c) => !c.featured);
-  const { cart, toggleCart } = useCart();
   const { user: customer, isAuthenticated: isCustomer, logout: customerLogout } = useCustomerAuth();
+  const { itemCount: quoteItemCount, toggleQuote } = useQuote();
   const megaTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const handleSearch = (e: React.FormEvent) => {
@@ -139,7 +139,7 @@ export default function Header() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search for products, brands, categories..."
+                  placeholder="Search for crystals, gemstones, fossils..."
                   className="w-full h-10 lg:h-12 pl-4 pr-12 border-2 border-gray-200 rounded-lg text-sm focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/10 bg-gray-50"
                 />
                 <button
@@ -168,15 +168,12 @@ export default function Header() {
                 <HeartIcon className="w-5 h-5" />
                 <span className="text-[10px] font-medium mt-0.5">Wishlist</span>
               </Link>
-              <button
-                onClick={toggleCart}
-                className="flex flex-col items-center px-2 lg:px-3 py-1 text-gray-600 hover:text-accent-500 rounded-lg hover:bg-gray-50 transition-colors relative"
-              >
-                <ShoppingCartIcon className="w-5 h-5" />
-                <span className="text-[10px] font-medium mt-0.5">Cart</span>
-                {cart.itemCount > 0 && (
-                  <span className="absolute -top-0.5 right-0 lg:right-1 w-4 h-4 bg-accent-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                    {cart.itemCount > 9 ? "9+" : cart.itemCount}
+              <button onClick={toggleQuote} className="flex flex-col items-center px-2 lg:px-3 py-1 text-gray-600 hover:text-accent-500 rounded-lg hover:bg-gray-50 transition-colors relative">
+                <DocumentTextIcon className="w-5 h-5" />
+                <span className="text-[10px] font-medium mt-0.5">Quotes</span>
+                {quoteItemCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-accent-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                    {quoteItemCount}
                   </span>
                 )}
               </button>
@@ -212,7 +209,7 @@ export default function Header() {
                       className="group flex items-center gap-3 p-2 rounded-lg hover:bg-accent-50 transition-colors"
                     >
                       <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-lg group-hover:bg-accent-100 transition-colors">
-                        {["🪨", "💎", "🔮", "🧱", "🏛️", "⛰️", "🏺"][categories.indexOf(cat)]}
+                        {["💎", "💠", "📿", "🔮", "🦕", "📿", "🗿"][categories.indexOf(cat)]}
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-800 group-hover:text-accent-600">{cat.name}</p>

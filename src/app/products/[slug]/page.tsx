@@ -4,8 +4,8 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
-import { useCart } from "@/context/CartContext";
 import { useCustomerAuth } from "@/context/CustomerAuthContext";
+import { useQuote } from "@/context/QuoteContext";
 import { formatPrice } from "@/lib/utils";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
@@ -15,15 +15,14 @@ import type { Product, ProductSize } from "@/types";
 export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { addItem, toggleCart } = useCart();
   const { isAuthenticated: isCustomerAuth } = useCustomerAuth();
   const [product, setProduct] = useState<Product | null>(null);
   const [related, setRelated] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSizeIdx, setSelectedSizeIdx] = useState(0);
+  const { addItem, toggleQuote } = useQuote();
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
-  const [stockError, setStockError] = useState("");
 
   useEffect(() => {
     fetch(`/api/products?slug=${params.slug}`)
@@ -45,6 +44,23 @@ export default function ProductDetailPage() {
       .finally(() => setLoading(false));
   }, [params.slug]);
 
+  const handleAddToQuote = () => {
+    if (!isCustomerAuth) {
+      router.push(`/login?redirect=/quote?product=${product!.slug}`);
+      return;
+    }
+    addItem({
+      productId: product!.id,
+      productName: product!.name,
+      slug: product!.slug,
+      image: product!.images?.[0] || "",
+      quantity: quantity,
+      notes: "",
+      price: selectedSize.price,
+    });
+    toggleQuote();
+  };
+
   if (loading) {
     return <div className="min-h-[60vh] flex items-center justify-center"><p className="text-primary-400">Loading...</p></div>;
   }
@@ -64,46 +80,8 @@ export default function ProductDetailPage() {
   }
 
   const selectedSize = product.sizes[selectedSizeIdx] || { name: "Standard", dimensions: "", price: product.price, stock: product.stock };
-  const realTimeStock = selectedSize.stock ?? product.stock;
-  const realTimeStatus = realTimeStock <= 0 ? "out_of_stock" : realTimeStock <= 50 ? "low_stock" : "in_stock";
 
   const images: string[] = (product.images?.length ? product.images : ["/images/placeholder.svg"]);
-
-  const handleAddToCart = () => {
-    if (!isCustomerAuth) {
-      sessionStorage.setItem("pendingCartItem", JSON.stringify({
-        id: `${product.id}-${selectedSize.name}`,
-        productId: product.id,
-        name: product.name,
-        image: images[0],
-        size: selectedSize.name,
-        quantity,
-        unitPrice: selectedSize.price,
-        totalPrice: selectedSize.price * quantity,
-      }));
-      router.push(`/login?redirect=/products/${product.slug}`);
-      return;
-    }
-
-    setStockError("");
-
-    if (realTimeStock < quantity) {
-      setStockError(`Only ${realTimeStock} unit(s) available. Please reduce quantity.`);
-      return;
-    }
-
-    addItem({
-      id: `${product.id}-${selectedSize.name}`,
-      productId: product.id,
-      name: product.name,
-      image: images[0],
-      size: selectedSize.name,
-      quantity,
-      unitPrice: selectedSize.price,
-      totalPrice: selectedSize.price * quantity,
-    });
-    toggleCart();
-  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -158,19 +136,6 @@ export default function ProductDetailPage() {
           <h1 className="text-2xl sm:text-3xl font-bold text-primary-900 mt-1">{product.name}</h1>
           <p className="text-sm text-primary-500 mt-1">SKU: {product.sku}</p>
 
-          <div className="flex items-center gap-3 mt-4">
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-              realTimeStatus === "in_stock" ? "text-green-600 bg-green-50" :
-              realTimeStatus === "low_stock" ? "text-yellow-600 bg-yellow-50" :
-              "text-red-600 bg-red-50"
-            }`}>
-              {realTimeStatus === "in_stock" ? "In Stock" : realTimeStatus === "low_stock" ? "Low Stock" : "Out of Stock"}
-            </span>
-            {realTimeStock > 0 && (
-              <span className="text-sm text-primary-500">{realTimeStock} units available</span>
-            )}
-          </div>
-
           <p className="text-primary-600 mt-4 leading-relaxed">{product.description}</p>
 
           {/* Size Selection */}
@@ -197,7 +162,6 @@ export default function ProductDetailPage() {
             </div>
           )}
 
-          {/* Fixed single size display */}
           {product.sizes.length <= 1 && (
             <div className="mt-6 p-4 bg-primary-50 rounded-xl">
               <div className="flex items-center justify-between">
@@ -210,60 +174,14 @@ export default function ProductDetailPage() {
             </div>
           )}
 
-          {/* Quantity & Add to Cart */}
-          <div className="mt-6 flex items-center gap-4">
-            <div className="flex items-center border border-primary-200 rounded-xl">
-              <button
-                onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                className="px-4 py-3 text-primary-500 hover:text-primary-700"
-              >
-                &minus;
-              </button>
-              <span className="px-4 py-3 text-lg font-bold text-primary-900 min-w-[3rem] text-center">
-                {quantity}
-              </span>
-              <button
-                onClick={() => setQuantity(quantity + 1)}
-                className="px-4 py-3 text-primary-500 hover:text-primary-700"
-              >
-                +
-              </button>
-            </div>
-            <span className="text-sm text-primary-500">{product.unit}(s)</span>
-          </div>
+          <Button
+            size="lg"
+            className="w-full mt-6 text-base"
+            onClick={handleAddToQuote}
+          >
+            Add to Quote
+          </Button>
 
-          {stockError && (
-            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-              {stockError}
-            </div>
-          )}
-
-          <div className="flex flex-col sm:flex-row gap-3 mt-6">
-            <Button
-              size="lg"
-              className="flex-1 text-base"
-              onClick={handleAddToCart}
-              disabled={realTimeStatus === "out_of_stock"}
-            >
-              {realTimeStatus === "out_of_stock" ? "Out of Stock" : "Add to Cart"}
-            </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              className="flex-1 text-base"
-              onClick={() => {
-                if (!isCustomerAuth) {
-                  router.push(`/login?redirect=/quote?product=${product.slug}`);
-                } else {
-                  router.push(`/quote?product=${product.slug}`);
-                }
-              }}
-            >
-              Request Quote
-            </Button>
-          </div>
-
-          {/* Wholesale info */}
           {product.wholesalePrice && (
             <div className="mt-4 p-4 bg-accent-50 border border-accent-200 rounded-xl">
               <p className="text-sm font-semibold text-accent-800">💼 Bulk Pricing Available</p>
@@ -273,13 +191,11 @@ export default function ProductDetailPage() {
             </div>
           )}
 
-          {/* Delivery info */}
           <div className="mt-4 p-4 bg-primary-50 rounded-xl">
             <p className="text-sm font-semibold text-primary-900">🚚 Delivery Information</p>
             <p className="text-sm text-primary-600 mt-1">{product.deliveryInfo}</p>
           </div>
 
-          {/* Specifications */}
           <div className="mt-6">
             <h3 className="text-sm font-semibold text-primary-900 mb-3">Specifications</h3>
             <div className="grid grid-cols-2 gap-3">
@@ -294,7 +210,6 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
-      {/* Related Products */}
       {related.length > 0 && (
         <section className="mt-16">
           <h2 className="heading-3 text-primary-900 mb-6">Related Products</h2>

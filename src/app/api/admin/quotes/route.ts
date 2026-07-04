@@ -43,7 +43,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "quoteId and status required" }, { status: 400 });
     }
 
-    const validStatuses = ["pending", "reviewed", "approved", "rejected", "converted"];
+    const validStatuses = ["pending", "processing", "quoted", "accepted", "rejected"];
     if (!validStatuses.includes(status)) {
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });
     }

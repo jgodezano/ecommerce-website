@@ -7,17 +7,18 @@ export function OrganizationSchema() {
     name: "Merica House of Rocks",
     url: "https://mericahouseofrocks.ph",
     logo: "https://mericahouseofrocks.ph/logo.png",
-    description: "Your trusted supplier of bricks, blocks, and construction materials since 2010.",
+    description: "Your trusted source for authentic crystals, gemstones, minerals, and fossils since 2010.",
     contactPoint: {
       "@type": "ContactPoint",
-      telephone: "+63-912-345-6789",
+      telephone: "+63-920-923-4354",
       contactType: "sales",
       availableLanguage: ["English", "Filipino"],
     },
     address: {
       "@type": "PostalAddress",
-      streetAddress: "123 Construction Ave",
-      addressLocality: "Manila",
+      streetAddress: "National Highway, Banay-Banay, San Vicente",
+      addressLocality: "Lipa City",
+      addressRegion: "Batangas",
       addressCountry: "PH",
     },
     sameAs: [
@@ -48,7 +49,7 @@ export function ProductSchema({ product }: { product: Product }) {
     category: product.category,
     weight: {
       "@type": "QuantitativeValue",
-      value: parseFloat(product.weight),
+      value: parseFloat(product.weight) || 0,
       unitCode: "KGM",
     },
     offers: {

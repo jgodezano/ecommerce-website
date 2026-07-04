@@ -12,7 +12,7 @@ interface Category {
   featured: boolean;
 }
 
-const EMOJIS = ["🧱", "🧱", "🪨", "📋", "🧱"];
+const EMOJIS = ["💎", "💠", "🔮", "🦕", "📿"];
 
 export default function PopularCategories() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -34,7 +34,7 @@ export default function PopularCategories() {
             <h2 className="text-2xl font-bold text-gray-900">Popular Categories</h2>
             <p className="text-gray-500 mt-1">Shop our most popular product categories</p>
           </div>
-          <Link href="/categories/hollow-blocks" className="text-sm font-semibold text-accent-500 hover:text-accent-600 transition-colors whitespace-nowrap">
+          <Link href="/categories" className="text-sm font-semibold text-accent-500 hover:text-accent-600 transition-colors whitespace-nowrap">
             View All Categories &rarr;
           </Link>
         </div>
