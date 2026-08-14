@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useAdminAuth } from "@/context/AdminAuthContext";
 import AdminGuard from "./AdminGuard";
 
@@ -19,6 +19,17 @@ const sidebarLinks = [
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+
+  // The login route is public and must not render inside the authenticated shell.
+  if (pathname === "/admin/login") {
+    return <>{children}</>;
+  }
+
+  return <AdminShell>{children}</AdminShell>;
+}
+
+function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, logout } = useAdminAuth();
 

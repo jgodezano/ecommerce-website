@@ -6,6 +6,7 @@ import { products } from "@/data/products";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { useCustomerAuth } from "@/context/CustomerAuthContext";
+import { useQuote } from "@/context/QuoteContext";
 import { sanitizeInput, sanitizeEmail, sanitizePhone, validateEmail } from "@/lib/utils";
 
 interface QuoteItem {
@@ -17,23 +18,9 @@ interface QuoteItem {
 
 function QuoteForm() {
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useCustomerAuth();
-
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      const currentParams = new URLSearchParams(window.location.search).toString();
-      router.push(`/login?redirect=/quote${currentParams ? `?${currentParams}` : ""}`);
-    }
-  }, [isLoading, isAuthenticated, router]);
-
-  if (isLoading) {
-    return <div className="max-w-4xl mx-auto px-4 py-8 text-center text-primary-400">Loading...</div>;
-  }
-
-  if (!isAuthenticated) {
-    return null;
-  }
   const searchParams = useSearchParams();
+  const { isAuthenticated, isLoading } = useCustomerAuth();
+  const { items: contextItems, clearItems } = useQuote();
   const preselectedProduct = searchParams.get("product");
   const preselectedProductData = preselectedProduct
     ? products.find((p) => p.slug === preselectedProduct)
@@ -51,7 +38,7 @@ function QuoteForm() {
     timeline: "",
   });
 
-  const [quoteItems, setQuoteItems] = useState<QuoteItem[]>(
+  const [quoteItems, setQuoteItems] = useState<QuoteItem[]>(() =>
     preselectedProductData
       ? [{ productId: preselectedProductData.id, productName: preselectedProductData.name, quantity: 100, notes: "" }]
       : [{ productId: "", productName: "", quantity: 100, notes: "" }]
@@ -61,6 +48,24 @@ function QuoteForm() {
   const [submitting, setSubmitting] = useState(false);
   const [quoteNumber, setQuoteNumber] = useState("");
   const [submitError, setSubmitError] = useState("");
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      const currentParams = new URLSearchParams(window.location.search).toString();
+      router.push(`/login?redirect=/quote${currentParams ? `?${currentParams}` : ""}`);
+    }
+  }, [isLoading, isAuthenticated, router]);
+
+  useEffect(() => {
+    if (contextItems.length > 0) {
+      setQuoteItems(contextItems.map((item) => ({
+        productId: item.productId,
+        productName: item.productName,
+        quantity: item.quantity,
+        notes: item.notes || "",
+      })));
+    }
+  }, [contextItems]);
 
   const updateField = (field: string, value: string) => {
     const sanitized = field === "email" ? sanitizeEmail(value) : field === "phone" ? sanitizePhone(value) : sanitizeInput(value);
@@ -86,7 +91,15 @@ function QuoteForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateEmail(formData.email)) return;
+    if (!validateEmail(formData.email)) {
+      setSubmitError("Please enter a valid email address.");
+      return;
+    }
+    const selectedItems = quoteItems.filter((item) => item.productId && item.quantity > 0);
+    if (selectedItems.length === 0) {
+      setSubmitError("Please select at least one product.");
+      return;
+    }
     setSubmitError("");
     setSubmitting(true);
 
@@ -95,7 +108,7 @@ function QuoteForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          items: quoteItems.filter((i) => i.productId),
+          items: selectedItems,
           notes: formData.projectDetails,
           projectDetails: {
             projectType: formData.projectType,
@@ -113,6 +126,8 @@ function QuoteForm() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to submit quote");
       setQuoteNumber(data.quoteNumber);
+      clearItems();
+      setSubmitting(false);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Failed to submit");
       setSubmitting(false);

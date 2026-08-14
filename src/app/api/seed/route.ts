@@ -8,6 +8,11 @@ import { testimonials } from "@/data/testimonials";
 import { deliveryZones } from "@/data/delivery";
 
 export async function GET() {
+  // Seeding creates predictable demo credentials and must never be exposed in production.
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "Seeding is disabled in production" }, { status: 404 });
+  }
+
   try {
     const db = getDb();
 

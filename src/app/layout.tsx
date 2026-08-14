@@ -4,9 +4,7 @@ import { StockProvider } from "@/context/StockContext";
 import { AdminAuthProvider } from "@/context/AdminAuthContext";
 import { CustomerAuthProvider } from "@/context/CustomerAuthContext";
 import { QuoteProvider } from "@/context/QuoteContext";
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
-import QuoteSidebar from "@/components/quote/QuoteSidebar";
+import AppShell from "@/components/layout/AppShell";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -51,10 +49,7 @@ export default function RootLayout({
             <QuoteProvider>
               <CustomerAuthProvider>
                 <AdminAuthProvider>
-                  <Header />
-                  <main className="flex-1">{children}</main>
-                  <QuoteSidebar />
-                  <Footer />
+                  <AppShell>{children}</AppShell>
                 </AdminAuthProvider>
               </CustomerAuthProvider>
             </QuoteProvider>

@@ -117,7 +117,8 @@ export function middleware(request: NextRequest) {
   // ========================================
   // 6. API Route Protection
   // ========================================
-  if (pathname.startsWith("/api/admin")) {
+  // The session endpoint must remain public so an administrator can log in.
+  if (pathname.startsWith("/api/admin") && pathname !== "/api/admin/session") {
     const adminCookie = request.cookies.get("bm_admin_session");
     if (!adminCookie) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
