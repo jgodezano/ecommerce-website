@@ -34,6 +34,32 @@ export interface ConfigurableMaterial {
   wastagePercent: number;
   minimumQuantity: number;
   estimationEnabled: boolean;
+  recommendationTags?: string[];
+  recommendedProjects?: string[];
+  usageRating?: "light" | "medium" | "heavy";
+  finishStyle?: string;
+  indoorOutdoor?: "indoor" | "outdoor" | "both";
+  drainageSuitable?: boolean;
+  heavyLoadSuitable?: boolean;
+  colorFamily?: string;
+}
+
+export interface ProjectProfile {
+  projectType: string;
+  useCase: string;
+  loadRequirement: "light" | "medium" | "heavy";
+  surfaceType: "soil" | "concrete" | "existing-gravel" | "mixed";
+  drainagePriority: "low" | "medium" | "high";
+  style: string;
+  colorPreference: string;
+  maintenance: "low" | "medium" | "high";
+  indoorOutdoor: "indoor" | "outdoor" | "both";
+  budget: "economy" | "standard" | "premium";
+}
+
+export interface MaterialMatch {
+  score: number;
+  reasons: string[];
 }
 
 export interface ConfigurableService {
@@ -64,6 +90,31 @@ export interface QuoteTotals {
   discount: number;
   total: number;
 } 
+
+export function scoreMaterialMatch(material: ConfigurableMaterial, profile?: Partial<ProjectProfile>): MaterialMatch {
+  if (!profile) return { score: 0, reasons: [] };
+  const tags = (material.recommendationTags || []).map((tag) => tag.toLowerCase());
+  const projects = (material.recommendedProjects || []).map((tag) => tag.toLowerCase());
+  const reasons: string[] = [];
+  let score = 0;
+  const includes = (values: string[] | undefined, expected: string | undefined) => Boolean(expected && values?.some((value) => value === expected.toLowerCase() || value.includes(expected.toLowerCase())));
+
+  if (includes(projects, profile.projectType)) { score += 6; reasons.push("suits this project type"); }
+  if (includes(tags, profile.useCase)) { score += 5; reasons.push("fits the intended use"); }
+  if (profile.loadRequirement === "heavy") {
+    if (material.heavyLoadSuitable) { score += 6; reasons.push("supports heavier traffic or loads"); } else score -= 8;
+  } else if (material.usageRating === profile.loadRequirement) { score += 3; reasons.push(`${profile.loadRequirement}-use compatible`); }
+  if (profile.drainagePriority === "high") {
+    if (material.drainageSuitable) { score += 4; reasons.push("helps with drainage planning"); } else score -= 4;
+  }
+  if (profile.indoorOutdoor && material.indoorOutdoor && (material.indoorOutdoor === "both" || material.indoorOutdoor === profile.indoorOutdoor)) { score += 3; reasons.push(`appropriate for ${profile.indoorOutdoor} use`); }
+  if (includes(tags, profile.style) || material.finishStyle?.toLowerCase().includes(profile.style?.toLowerCase() || "__never__")) { score += 3; reasons.push("matches the selected look"); }
+  if (profile.colorPreference !== "any" && material.colorFamily?.toLowerCase().includes(profile.colorPreference?.toLowerCase() || "__never__")) { score += 2; reasons.push("matches the color preference"); }
+  if (profile.maintenance === "low" && includes(tags, "low-maintenance")) { score += 3; reasons.push("supports low maintenance"); }
+  if (profile.budget === "economy" && material.price <= 1000) { score += 2; reasons.push("fits an economy starting point"); }
+  if (profile.budget === "premium" && material.price >= 2000) { score += 2; reasons.push("fits a premium starting point"); }
+  return { score, reasons: reasons.slice(0, 3) };
+}
 
 export function estimateMaterialForArea(areaSqm: number, material: ConfigurableMaterial): AreaEstimate | null {
   if (!Number.isFinite(areaSqm) || areaSqm <= 0 || !material.estimationEnabled || !material.coveragePerUnit || material.coveragePerUnit <= 0) {

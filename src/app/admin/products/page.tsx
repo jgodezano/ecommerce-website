@@ -19,6 +19,14 @@ interface Product {
   minimum_quantity?: number;
   estimation_enabled?: number | boolean;
   is_active?: number | boolean;
+  recommendation_tags?: string[];
+  recommended_projects?: string[];
+  usage_rating?: string;
+  finish_style?: string;
+  indoor_outdoor?: string;
+  drainage_suitable?: number | boolean;
+  heavy_load_suitable?: number | boolean;
+  color_family?: string;
 }
 
 interface Category {
@@ -46,6 +54,7 @@ export default function AdminProductsPage() {
     name: "", sku: "", categoryId: "", description: "", price: "", stock: "",
     stockStatus: "in_stock", unit: "pc", weight: "", materialType: "",
     featured: false, images: "", coveragePerUnit: "", wastagePercent: "0", minimumQuantity: "1", estimationEnabled: false, isActive: true,
+    recommendationTags: "", recommendedProjects: "", usageRating: "medium", finishStyle: "", indoorOutdoor: "outdoor", drainageSuitable: true, heavyLoadSuitable: false, colorFamily: "any",
   });
 
   const fetchProducts = () => {
@@ -72,7 +81,7 @@ export default function AdminProductsPage() {
   const openAdd = () => {
     setMode("add");
     setEditId(null);
-    setForm({ name: "", sku: "", categoryId: "", description: "", price: "", stock: "", stockStatus: "in_stock", unit: "pc", weight: "", materialType: "", featured: false, images: "", coveragePerUnit: "", wastagePercent: "0", minimumQuantity: "1", estimationEnabled: false, isActive: true });
+    setForm({ name: "", sku: "", categoryId: "", description: "", price: "", stock: "", stockStatus: "in_stock", unit: "pc", weight: "", materialType: "", featured: false, images: "", coveragePerUnit: "", wastagePercent: "0", minimumQuantity: "1", estimationEnabled: false, isActive: true, recommendationTags: "", recommendedProjects: "", usageRating: "medium", finishStyle: "", indoorOutdoor: "outdoor", drainageSuitable: true, heavyLoadSuitable: false, colorFamily: "any" });
   };
 
   const openEdit = (product: Product) => {
@@ -82,7 +91,7 @@ export default function AdminProductsPage() {
       name: product.name, sku: product.sku || "", categoryId: "",
       description: "", price: String(product.price), stock: String(product.stock),
       stockStatus: product.stock_status, unit: "pc", weight: "", materialType: "",
-      featured: !!product.featured, images: "", coveragePerUnit: String(product.coverage_per_unit ?? ""), wastagePercent: String(product.wastage_percent ?? 0), minimumQuantity: String(product.minimum_quantity ?? 1), estimationEnabled: !!product.estimation_enabled, isActive: product.is_active !== 0,
+      featured: !!product.featured, images: "", coveragePerUnit: String(product.coverage_per_unit ?? ""), wastagePercent: String(product.wastage_percent ?? 0), minimumQuantity: String(product.minimum_quantity ?? 1), estimationEnabled: !!product.estimation_enabled, isActive: product.is_active !== 0, recommendationTags: "", recommendedProjects: "", usageRating: product.usage_rating || "medium", finishStyle: product.finish_style || "", indoorOutdoor: product.indoor_outdoor || "outdoor", drainageSuitable: product.drainage_suitable !== 0, heavyLoadSuitable: !!product.heavy_load_suitable, colorFamily: product.color_family || "any",
     });
     // Fetch full product details for edit
     fetch(`/api/products?id=${product.id}`)
@@ -103,6 +112,14 @@ export default function AdminProductsPage() {
             minimumQuantity: String(data.product.minimumQuantity ?? 1),
             estimationEnabled: !!data.product.estimationEnabled,
             isActive: data.product.isActive !== false,
+            recommendationTags: (data.product.recommendationTags || data.product.recommendation_tags || []).join(", "),
+            recommendedProjects: (data.product.recommendedProjects || data.product.recommended_projects || []).join(", "),
+            usageRating: data.product.usageRating || data.product.usage_rating || "medium",
+            finishStyle: data.product.finishStyle || data.product.finish_style || "",
+            indoorOutdoor: data.product.indoorOutdoor || data.product.indoor_outdoor || "outdoor",
+            drainageSuitable: data.product.drainageSuitable !== false && data.product.drainage_suitable !== 0,
+            heavyLoadSuitable: !!(data.product.heavyLoadSuitable || data.product.heavy_load_suitable),
+            colorFamily: data.product.colorFamily || data.product.color_family || "any",
           }));
         }
       })
@@ -134,6 +151,14 @@ export default function AdminProductsPage() {
         minimumQuantity: parseInt(form.minimumQuantity) || 1,
         estimationEnabled: form.estimationEnabled,
         isActive: form.isActive,
+        recommendationTags: form.recommendationTags.split(",").map((value) => value.trim()).filter(Boolean),
+        recommendedProjects: form.recommendedProjects.split(",").map((value) => value.trim()).filter(Boolean),
+        usageRating: form.usageRating,
+        finishStyle: form.finishStyle,
+        indoorOutdoor: form.indoorOutdoor,
+        drainageSuitable: form.drainageSuitable,
+        heavyLoadSuitable: form.heavyLoadSuitable,
+        colorFamily: form.colorFamily,
       };
 
       const res = await fetch("/api/admin/products", {
@@ -268,6 +293,22 @@ export default function AdminProductsPage() {
                   <input value={form.materialType} onChange={(e) => setForm({ ...form, materialType: e.target.value })}
                     placeholder="e.g. Quartz, Feldspar, Fossil"
                     className="w-full rounded-lg border border-primary-300 px-3 py-2 text-sm focus:outline-none focus:border-accent-500" />
+                </div>
+              </div>
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-4">
+                <p className="text-sm font-semibold text-primary-900">Estimator recommendation profile</p>
+                <p className="mt-1 text-xs leading-5 text-primary-500">These tags help the guided questionnaire rank this item. Use comma-separated values.</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <label className="text-xs font-medium text-primary-700">Recommended project types<input value={form.recommendedProjects} onChange={(e) => setForm({ ...form, recommendedProjects: e.target.value })} placeholder="landscaping, garden, pathway" className="mt-1 w-full rounded-lg border border-primary-300 px-3 py-2 text-sm" /></label>
+                  <label className="text-xs font-medium text-primary-700">Use-case tags<input value={form.recommendationTags} onChange={(e) => setForm({ ...form, recommendationTags: e.target.value })} placeholder="decorative, drainage, low-maintenance" className="mt-1 w-full rounded-lg border border-primary-300 px-3 py-2 text-sm" /></label>
+                  <label className="text-xs font-medium text-primary-700">Style / finish<input value={form.finishStyle} onChange={(e) => setForm({ ...form, finishStyle: e.target.value })} placeholder="natural, modern, clean" className="mt-1 w-full rounded-lg border border-primary-300 px-3 py-2 text-sm" /></label>
+                  <label className="text-xs font-medium text-primary-700">Color family<input value={form.colorFamily} onChange={(e) => setForm({ ...form, colorFamily: e.target.value })} placeholder="neutral, white, dark, warm" className="mt-1 w-full rounded-lg border border-primary-300 px-3 py-2 text-sm" /></label>
+                  <label className="text-xs font-medium text-primary-700">Typical load<select value={form.usageRating} onChange={(e) => setForm({ ...form, usageRating: e.target.value })} className="mt-1 w-full rounded-lg border border-primary-300 bg-white px-3 py-2 text-sm"><option value="light">Light</option><option value="medium">Medium</option><option value="heavy">Heavy</option></select></label>
+                  <label className="text-xs font-medium text-primary-700">Use location<select value={form.indoorOutdoor} onChange={(e) => setForm({ ...form, indoorOutdoor: e.target.value })} className="mt-1 w-full rounded-lg border border-primary-300 bg-white px-3 py-2 text-sm"><option value="outdoor">Outdoor</option><option value="indoor">Indoor</option><option value="both">Indoor & outdoor</option></select></label>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-4">
+                  <label className="flex items-center gap-2 text-xs font-medium text-primary-700"><input type="checkbox" checked={form.drainageSuitable} onChange={(e) => setForm({ ...form, drainageSuitable: e.target.checked })} /> Suitable for drainage</label>
+                  <label className="flex items-center gap-2 text-xs font-medium text-primary-700"><input type="checkbox" checked={form.heavyLoadSuitable} onChange={(e) => setForm({ ...form, heavyLoadSuitable: e.target.checked })} /> Suitable for heavy load</label>
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-4 pt-2">

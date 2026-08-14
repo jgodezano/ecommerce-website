@@ -36,6 +36,14 @@ function transformProduct(row: any) {
     minimumQuantity: Number(row.minimum_quantity || 1),
     estimationEnabled: !!row.estimation_enabled,
     isActive: row.is_active == null ? true : !!row.is_active,
+    recommendationTags: safeJsonParse(row.recommendation_tags, []),
+    recommendedProjects: safeJsonParse(row.recommended_projects, []),
+    usageRating: row.usage_rating || "light",
+    finishStyle: row.finish_style || "",
+    indoorOutdoor: row.indoor_outdoor || "both",
+    drainageSuitable: row.drainage_suitable == null ? true : !!row.drainage_suitable,
+    heavyLoadSuitable: !!row.heavy_load_suitable,
+    colorFamily: row.color_family || "",
     createdAt: row.created_at || "",
   };
 }
@@ -74,8 +82,8 @@ export async function POST(req: NextRequest) {
       .replace(/^-|-$/g, "");
 
     db.prepare(`
-      INSERT INTO products (id, name, slug, sku, category_id, description, images, specifications, sizes, weight, unit, price, wholesale_price, min_wholesale_qty, stock, low_stock_threshold, stock_status, featured, best_seller, material_type, delivery_info, coverage_per_unit, wastage_percent, minimum_quantity, estimation_enabled, is_active)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO products (id, name, slug, sku, category_id, description, images, specifications, sizes, weight, unit, price, wholesale_price, min_wholesale_qty, stock, low_stock_threshold, stock_status, featured, best_seller, material_type, delivery_info, coverage_per_unit, wastage_percent, minimum_quantity, estimation_enabled, is_active, recommendation_tags, recommended_projects, usage_rating, finish_style, indoor_outdoor, drainage_suitable, heavy_load_suitable, color_family)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id, body.name, slug, body.sku || "", body.categoryId || null,
       body.description || "", JSON.stringify(body.images || []), JSON.stringify(body.specifications || []),
@@ -86,7 +94,10 @@ export async function POST(req: NextRequest) {
       body.materialType || "", body.deliveryInfo || "",
       body.coveragePerUnit == null || body.coveragePerUnit === "" ? null : Number(body.coveragePerUnit),
       Number(body.wastagePercent || 0), Number(body.minimumQuantity || 1),
-      body.estimationEnabled ? 1 : 0, body.isActive === false ? 0 : 1
+      body.estimationEnabled ? 1 : 0, body.isActive === false ? 0 : 1,
+      JSON.stringify(body.recommendationTags || []), JSON.stringify(body.recommendedProjects || []),
+      body.usageRating || "light", body.finishStyle || "", body.indoorOutdoor || "both",
+      body.drainageSuitable === false ? 0 : 1, body.heavyLoadSuitable ? 1 : 0, body.colorFamily || ""
     );
 
     return NextResponse.json({ success: true, productId: id });
@@ -116,15 +127,29 @@ export async function PATCH(req: NextRequest) {
       "sizes", "weight", "unit", "price", "wholesale_price", "min_wholesale_qty",
       "stock", "low_stock_threshold", "stock_status", "featured", "best_seller",
       "material_type", "delivery_info", "coverage_per_unit", "wastage_percent",
-      "minimum_quantity", "estimation_enabled", "is_active",
+      "minimum_quantity", "estimation_enabled", "is_active", "recommendation_tags", "recommended_projects",
+      "usage_rating", "finish_style", "indoor_outdoor", "drainage_suitable", "heavy_load_suitable", "color_family",
     ];
 
     const updates: string[] = [];
     const params: any[] = [];
+    const aliases: Record<string, string> = {
+      categoryId: "category_id", wholesalePrice: "wholesale_price", minWholesaleQty: "min_wholesale_qty",
+      lowStockThreshold: "low_stock_threshold", stockStatus: "stock_status", bestSeller: "best_seller",
+      materialType: "material_type", deliveryInfo: "delivery_info", coveragePerUnit: "coverage_per_unit",
+      wastagePercent: "wastage_percent", minimumQuantity: "minimum_quantity", estimationEnabled: "estimation_enabled",
+      isActive: "is_active", recommendationTags: "recommendation_tags", recommendedProjects: "recommended_projects",
+      usageRating: "usage_rating", finishStyle: "finish_style", indoorOutdoor: "indoor_outdoor",
+      drainageSuitable: "drainage_suitable", heavyLoadSuitable: "heavy_load_suitable", colorFamily: "color_family",
+    };
 
-    for (const [key, value] of Object.entries(fields)) {
-      if (allowedFields.includes(key)) {
-        updates.push(`${key} = ?`);
+    for (const [key, rawValue] of Object.entries(fields)) {
+      const dbKey = aliases[key] || key;
+      if (allowedFields.includes(dbKey)) {
+        let value: any = rawValue;
+        if (["recommendation_tags", "recommended_projects"].includes(dbKey) && Array.isArray(value)) value = JSON.stringify(value);
+        if (["featured", "best_seller", "estimation_enabled", "is_active", "drainage_suitable", "heavy_load_suitable"].includes(dbKey)) value = value ? 1 : 0;
+        updates.push(`${dbKey} = ?`);
         params.push(value);
       }
     }
