@@ -72,6 +72,11 @@ export function createSchema(db: Database.Database) {
       best_seller INTEGER NOT NULL DEFAULT 0,
       material_type TEXT DEFAULT '',
       delivery_info TEXT DEFAULT '',
+      coverage_per_unit REAL DEFAULT NULL,
+      wastage_percent REAL NOT NULL DEFAULT 0,
+      minimum_quantity INTEGER NOT NULL DEFAULT 1,
+      estimation_enabled INTEGER NOT NULL DEFAULT 0,
+      is_active INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -114,6 +119,21 @@ export function createSchema(db: Database.Database) {
       project_details TEXT DEFAULT '{}',
       admin_notes TEXT DEFAULT '',
       total REAL NOT NULL DEFAULT 0,
+      area_sqm REAL DEFAULT NULL,
+      selected_material_id TEXT DEFAULT NULL,
+      material_total REAL NOT NULL DEFAULT 0,
+      delivery_fee REAL NOT NULL DEFAULT 0,
+      service_total REAL NOT NULL DEFAULT 0,
+      other_charges REAL NOT NULL DEFAULT 0,
+      discount REAL NOT NULL DEFAULT 0,
+      services TEXT NOT NULL DEFAULT '[]',
+      customer_name TEXT DEFAULT '',
+      customer_email TEXT DEFAULT '',
+      customer_phone TEXT DEFAULT '',
+      project_location TEXT DEFAULT '',
+      timeline TEXT DEFAULT '',
+      workflow_status TEXT NOT NULL DEFAULT 'pending',
+      estimate_disclaimer TEXT DEFAULT '',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -156,6 +176,17 @@ export function createSchema(db: Database.Database) {
       estimated_days TEXT DEFAULT ''
     );
 
+    CREATE TABLE IF NOT EXISTS quote_services (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      pricing_model TEXT NOT NULL DEFAULT 'flat' CHECK(pricing_model IN ('flat','per_sqm')),
+      price REAL NOT NULL DEFAULT 0,
+      unit TEXT NOT NULL DEFAULT 'service',
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS stock_movements (
       id TEXT PRIMARY KEY,
       product_id TEXT NOT NULL REFERENCES products(id),
@@ -178,6 +209,26 @@ export function createSchema(db: Database.Database) {
     ["users", "account_status", "ALTER TABLE users ADD COLUMN account_status TEXT NOT NULL DEFAULT 'approved'"],
     ["users", "identity_document", "ALTER TABLE users ADD COLUMN identity_document TEXT DEFAULT ''"],
     ["users", "rejection_reason", "ALTER TABLE users ADD COLUMN rejection_reason TEXT DEFAULT ''"],
+    ["products", "coverage_per_unit", "ALTER TABLE products ADD COLUMN coverage_per_unit REAL DEFAULT NULL"],
+    ["products", "wastage_percent", "ALTER TABLE products ADD COLUMN wastage_percent REAL NOT NULL DEFAULT 0"],
+    ["products", "minimum_quantity", "ALTER TABLE products ADD COLUMN minimum_quantity INTEGER NOT NULL DEFAULT 1"],
+    ["products", "estimation_enabled", "ALTER TABLE products ADD COLUMN estimation_enabled INTEGER NOT NULL DEFAULT 0"],
+    ["products", "is_active", "ALTER TABLE products ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1"],
+    ["quotes", "area_sqm", "ALTER TABLE quotes ADD COLUMN area_sqm REAL DEFAULT NULL"],
+    ["quotes", "selected_material_id", "ALTER TABLE quotes ADD COLUMN selected_material_id TEXT DEFAULT NULL"],
+    ["quotes", "material_total", "ALTER TABLE quotes ADD COLUMN material_total REAL NOT NULL DEFAULT 0"],
+    ["quotes", "delivery_fee", "ALTER TABLE quotes ADD COLUMN delivery_fee REAL NOT NULL DEFAULT 0"],
+    ["quotes", "service_total", "ALTER TABLE quotes ADD COLUMN service_total REAL NOT NULL DEFAULT 0"],
+    ["quotes", "other_charges", "ALTER TABLE quotes ADD COLUMN other_charges REAL NOT NULL DEFAULT 0"],
+    ["quotes", "discount", "ALTER TABLE quotes ADD COLUMN discount REAL NOT NULL DEFAULT 0"],
+    ["quotes", "services", "ALTER TABLE quotes ADD COLUMN services TEXT NOT NULL DEFAULT '[]'"],
+    ["quotes", "customer_name", "ALTER TABLE quotes ADD COLUMN customer_name TEXT DEFAULT ''"],
+    ["quotes", "customer_email", "ALTER TABLE quotes ADD COLUMN customer_email TEXT DEFAULT ''"],
+    ["quotes", "customer_phone", "ALTER TABLE quotes ADD COLUMN customer_phone TEXT DEFAULT ''"],
+    ["quotes", "project_location", "ALTER TABLE quotes ADD COLUMN project_location TEXT DEFAULT ''"],
+    ["quotes", "timeline", "ALTER TABLE quotes ADD COLUMN timeline TEXT DEFAULT ''"],
+    ["quotes", "workflow_status", "ALTER TABLE quotes ADD COLUMN workflow_status TEXT NOT NULL DEFAULT 'pending'"],
+    ["quotes", "estimate_disclaimer", "ALTER TABLE quotes ADD COLUMN estimate_disclaimer TEXT DEFAULT ''"],
   ];
 
   for (const [table, column, sql] of migrations) {
@@ -187,4 +238,11 @@ export function createSchema(db: Database.Database) {
       } catch {}
     }
   }
+
+  // Create indexes only after migrations, because existing installations may have older tables.
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_quotes_workflow_status ON quotes(workflow_status);
+    CREATE INDEX IF NOT EXISTS idx_products_estimation ON products(estimation_enabled, is_active);
+    CREATE INDEX IF NOT EXISTS idx_quote_services_active ON quote_services(active);
+  `);
 }

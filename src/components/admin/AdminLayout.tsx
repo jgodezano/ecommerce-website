@@ -8,6 +8,7 @@ import AdminGuard from "./AdminGuard";
 const sidebarLinks = [
   { label: "Dashboard", href: "/admin", icon: "📊" },
   { label: "Products", href: "/admin/products", icon: "📦" },
+  { label: "Services", href: "/admin/services", icon: "🛠️" },
   { label: "Inventory", href: "/admin/inventory", icon: "📋" },
   { label: "Orders", href: "/admin/orders", icon: "🛒" },
   { label: "Quotes", href: "/admin/quotes", icon: "📄" },

@@ -17,6 +17,101 @@ export interface MaterialEstimate {
   unitPrice: number;
   totalPrice: number;
   productId?: string;
+  image?: string;
+  description?: string;
+  coveragePerUnit?: number;
+  wastagePercent?: number;
+}
+
+export interface ConfigurableMaterial {
+  id: string;
+  name: string;
+  description?: string;
+  image?: string;
+  unit: string;
+  price: number;
+  coveragePerUnit: number | null;
+  wastagePercent: number;
+  minimumQuantity: number;
+  estimationEnabled: boolean;
+}
+
+export interface ConfigurableService {
+  id: string;
+  name: string;
+  description?: string;
+  pricingModel: "flat" | "per_sqm";
+  price: number;
+  unit: string;
+}
+
+export interface AreaEstimate {
+  areaSqm: number;
+  baseQuantity: number;
+  recommendedQuantity: number;
+  unit: string;
+  unitPrice: number;
+  materialTotal: number;
+  wastagePercent: number;
+  coveragePerUnit: number;
+}
+
+export interface QuoteTotals {
+  materialTotal: number;
+  deliveryFee: number;
+  serviceTotal: number;
+  otherCharges: number;
+  discount: number;
+  total: number;
+} 
+
+export function estimateMaterialForArea(areaSqm: number, material: ConfigurableMaterial): AreaEstimate | null {
+  if (!Number.isFinite(areaSqm) || areaSqm <= 0 || !material.estimationEnabled || !material.coveragePerUnit || material.coveragePerUnit <= 0) {
+    return null;
+  }
+
+  const baseQuantity = areaSqm / material.coveragePerUnit;
+  const withWastage = baseQuantity * (1 + Math.max(0, material.wastagePercent || 0) / 100);
+  const recommendedQuantity = Math.max(material.minimumQuantity || 1, Math.ceil(withWastage));
+
+  return {
+    areaSqm,
+    baseQuantity,
+    recommendedQuantity,
+    unit: material.unit || "unit",
+    unitPrice: Number(material.price || 0),
+    materialTotal: recommendedQuantity * Number(material.price || 0),
+    wastagePercent: Math.max(0, material.wastagePercent || 0),
+    coveragePerUnit: material.coveragePerUnit,
+  };
+}
+
+export function calculateServiceCost(service: ConfigurableService, areaSqm: number): number {
+  const multiplier = service.pricingModel === "per_sqm" ? areaSqm : 1;
+  return Math.max(0, Number(service.price || 0)) * multiplier;
+}
+
+export function calculateQuoteTotals(input: {
+  materialTotal: number;
+  deliveryFee?: number;
+  serviceTotal?: number;
+  otherCharges?: number;
+  discount?: number;
+}): QuoteTotals {
+  const materialTotal = Math.max(0, Number(input.materialTotal || 0));
+  const deliveryFee = Math.max(0, Number(input.deliveryFee || 0));
+  const serviceTotal = Math.max(0, Number(input.serviceTotal || 0));
+  const otherCharges = Math.max(0, Number(input.otherCharges || 0));
+  const discount = Math.min(materialTotal + deliveryFee + serviceTotal + otherCharges, Math.max(0, Number(input.discount || 0)));
+
+  return {
+    materialTotal,
+    deliveryFee,
+    serviceTotal,
+    otherCharges,
+    discount,
+    total: materialTotal + deliveryFee + serviceTotal + otherCharges - discount,
+  };
 }
 
 export interface EstimationResult {

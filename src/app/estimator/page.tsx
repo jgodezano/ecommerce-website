@@ -1,247 +1,264 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import { useCart } from "@/context/CartContext";
 import { useCustomerAuth } from "@/context/CustomerAuthContext";
 import { formatPrice } from "@/lib/utils";
-import {
-  estimateWall,
-  estimateFloorSlab,
-  estimateColumn,
-  MaterialEstimate,
-} from "@/lib/estimator";
 
-type ProjectType = "wall" | "floor" | "column";
+type Recommendation = {
+  id: string;
+  name: string;
+  description: string;
+  image: string;
+  unit: string;
+  price: number;
+  coveragePerUnit: number;
+  wastagePercent: number;
+  estimate: {
+    recommendedQuantity: number;
+    materialTotal: number;
+    baseQuantity: number;
+  };
+};
+
+type Service = {
+  id: string;
+  name: string;
+  description: string;
+  pricingModel: "flat" | "per_sqm";
+  price: number;
+  unit: string;
+  total?: number;
+};
+
+const DISCLAIMER = "This quotation is an estimate based on the information provided. Final quantity, delivery charges, material requirements, and pricing may be confirmed by our team after reviewing your project.";
 
 export default function EstimatorPage() {
   const router = useRouter();
-  const { addItem, toggleCart } = useCart();
-  const { isAuthenticated } = useCustomerAuth();
-  const [projectType, setProjectType] = useState<ProjectType>("wall");
-
-  const [wallDims, setWallDims] = useState<{ length: number; height: number; thickness: "4" | "6" | "8" }>({ length: 5, height: 3, thickness: "6" });
-  const [floorDims, setFloorDims] = useState({ length: 4, width: 3, thickness: 10 });
-  const [colDims, setColDims] = useState({ height: 3, width: 30, depth: 30 });
-
-  const [result, setResult] = useState<{
-    materials: MaterialEstimate[];
-    subtotal: number;
-    notes: string[];
-  } | null>(null);
+  const { user, isAuthenticated } = useCustomerAuth();
+  const [length, setLength] = useState("");
+  const [width, setWidth] = useState("");
+  const [area, setArea] = useState("");
+  const [projectType, setProjectType] = useState("landscaping");
+  const [deliveryCity, setDeliveryCity] = useState("");
+  const [deliveryZoneId, setDeliveryZoneId] = useState("");
+  const [deliveryZones, setDeliveryZones] = useState<any[]>([]);
+  const [timeline, setTimeline] = useState("");
+  const [notes, setNotes] = useState("");
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [selectedProductId, setSelectedProductId] = useState("");
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+  const [estimate, setEstimate] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const calculate = () => {
+  useEffect(() => {
+    fetch("/api/delivery").then((response) => response.json()).then((data) => setDeliveryZones(data.zones || [])).catch(() => {});
+  }, []);
+
+  const computedArea = useMemo(() => {
+    const directArea = Number(area);
+    if (Number.isFinite(directArea) && directArea > 0) return directArea;
+    const l = Number(length);
+    const w = Number(width);
+    return l > 0 && w > 0 ? l * w : 0;
+  }, [area, length, width]);
+
+  const selectedRecommendation = recommendations.find((item) => item.id === selectedProductId) || recommendations[0];
+  const currentTotals = estimate?.totals || {
+    materialTotal: selectedRecommendation?.estimate.materialTotal || 0,
+    deliveryFee: 0,
+    serviceTotal: 0,
+    otherCharges: 0,
+    discount: 0,
+    total: selectedRecommendation?.estimate.materialTotal || 0,
+  };
+
+  const calculate = async () => {
+    setError("");
+    setMessage("");
+    if (!computedArea || computedArea <= 0) {
+      setError("Enter a valid area, or enter both length and width in meters.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch("/api/estimate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ areaSqm: computedArea, serviceIds: selectedServiceIds, selectedProductId, deliveryZoneId }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to calculate estimate");
+      setRecommendations(data.recommendations || []);
+      setServices(data.services || []);
+      setEstimate(data);
+      if (data.selectedProductId) setSelectedProductId(data.selectedProductId);
+      if (!data.recommendations?.length) {
+        setMessage("No materials are configured for estimation yet. An administrator must add coverage per unit and enable estimation for products.");
+      }
+    } catch (err: any) {
+      setError(err.message || "Unable to calculate estimate");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const recalculate = async (nextProductId = selectedProductId, nextServiceIds = selectedServiceIds) => {
+    if (!computedArea) return;
+    const response = await fetch("/api/estimate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ areaSqm: computedArea, serviceIds: nextServiceIds, selectedProductId: nextProductId }),
+    });
+    const data = await response.json();
+    if (response.ok) setEstimate(data);
+  };
+
+  const chooseMaterial = (id: string) => {
+    setSelectedProductId(id);
+    void recalculate(id, selectedServiceIds);
+  };
+
+  const toggleService = (id: string) => {
+    const next = selectedServiceIds.includes(id) ? selectedServiceIds.filter((item) => item !== id) : [...selectedServiceIds, id];
+    setSelectedServiceIds(next);
+    void recalculate(selectedProductId, next);
+  };
+
+  const requestQuotation = async () => {
+    if (!selectedRecommendation || !computedArea) {
+      setError("Calculate your estimate and select a material first.");
+      return;
+    }
+    if (!isAuthenticated) {
+      sessionStorage.setItem("pendingEstimate", JSON.stringify({ areaSqm: computedArea, selectedProductId, selectedServiceIds,           projectType, deliveryCity, deliveryZoneId, timeline, notes }));
+      router.push("/login?redirect=/estimator");
+      return;
+    }
+
+    setSubmitting(true);
     setError("");
     try {
-      let r;
-      switch (projectType) {
-        case "wall":
-          if (wallDims.length <= 0 || wallDims.height <= 0) {
-            setError("Please enter valid dimensions");
-            return;
-          }
-          r = estimateWall(wallDims);
-          break;
-        case "floor":
-          if (floorDims.length <= 0 || floorDims.width <= 0 || floorDims.thickness <= 0) {
-            setError("Please enter valid dimensions");
-            return;
-          }
-          r = estimateFloorSlab(floorDims);
-          break;
-        case "column":
-          if (colDims.height <= 0 || colDims.width <= 0 || colDims.depth <= 0) {
-            setError("Please enter valid dimensions");
-            return;
-          }
-          r = estimateColumn(colDims.height, colDims.width, colDims.depth);
-          break;
-      }
-      if (r) setResult(r);
-    } catch {
-      setError("Calculation failed. Please check your inputs.");
-    }
-  };
-
-  const addToCart = (material: MaterialEstimate) => {
-    if (!isAuthenticated) {
-      sessionStorage.setItem("pendingCartItem", JSON.stringify({
-        id: `est-${Date.now()}`,
-        productId: material.productId || `est-${material.name}`,
-        name: material.name,
-        image: "",
-        size: "Standard",
-        quantity: Math.ceil(material.quantity),
-        unitPrice: material.unitPrice,
-        totalPrice: material.totalPrice,
-      }));
-      router.push("/login?redirect=/estimator");
-      return;
-    }
-    addItem({
-      id: `est-${Date.now()}`,
-      productId: material.productId || `est-${material.name}`,
-      name: `${material.name} (Estimate)`,
-      image: "",
-      size: "Standard",
-      quantity: Math.ceil(material.quantity),
-      unitPrice: material.unitPrice,
-      totalPrice: material.totalPrice,
-    });
-    toggleCart();
-  };
-
-  const addAllToCart = () => {
-    if (!result) return;
-    if (!isAuthenticated) {
-      router.push("/login?redirect=/estimator");
-      return;
-    }
-    result.materials.forEach((m) => {
-      addItem({
-        id: `est-${Date.now()}-${m.name}`,
-        productId: m.productId || `est-${m.name}`,
-        name: `${m.name} (Estimate)`,
-        image: "",
-        size: "Standard",
-        quantity: Math.ceil(m.quantity),
-        unitPrice: m.unitPrice,
-        totalPrice: m.totalPrice,
+      const response = await fetch("/api/quotes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: [{
+            productId: selectedRecommendation.id,
+            name: selectedRecommendation.name,
+            quantity: selectedRecommendation.estimate.recommendedQuantity,
+            unit: selectedRecommendation.unit,
+            estimatedUnitPrice: selectedRecommendation.price,
+            totalPrice: selectedRecommendation.estimate.materialTotal,
+            coveragePerUnit: selectedRecommendation.coveragePerUnit,
+          }],
+          areaSqm: computedArea,
+          selectedMaterialId: selectedRecommendation.id,
+          services: estimate?.services || [],
+          materialTotal: currentTotals.materialTotal,
+          deliveryFee: currentTotals.deliveryFee,
+          serviceTotal: currentTotals.serviceTotal,
+          otherCharges: currentTotals.otherCharges,
+          discount: currentTotals.discount,
+          total: currentTotals.total,
+          notes,
+          projectType,
+          deliveryCity,
+          timeline,
+          customerName: [user?.firstName, user?.lastName].filter(Boolean).join(" "),
+          customerEmail: user?.email || "",
+          customerPhone: user?.phone || "",
+          projectLocation: deliveryCity,
+          deliveryZoneId,
+          estimateDisclaimer: DISCLAIMER,
+        }),
       });
-    });
-    toggleCart();
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to submit quotation");
+      setMessage(`Quotation ${data.quoteNumber} submitted successfully. Our team will review it and contact you.`);
+    } catch (err: any) {
+      setError(err.message || "Failed to submit quotation");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="text-center mb-10">
-        <h1 className="text-3xl sm:text-4xl font-bold text-primary-900">Project Estimator</h1>
-        <p className="text-primary-500 mt-3 max-w-2xl mx-auto">
-          Enter your project dimensions to get an instant material estimate with pricing.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-white border border-primary-100 rounded-xl p-6">
-          <h2 className="text-lg font-bold text-primary-900 mb-4">Project Details</h2>
-
-          <div className="flex gap-3 mb-6">
-            {([
-              { value: "wall", label: "Wall", icon: "🧱" },
-              { value: "floor", label: "Floor Slab", icon: "🏗️" },
-              { value: "column", label: "Column", icon: "⬛" },
-            ] as const).map((type) => (
-              <button
-                key={type.value}
-                onClick={() => { setProjectType(type.value); setResult(null); }}
-                className={`flex-1 p-4 rounded-xl border-2 text-center transition-all ${
-                  projectType === type.value ? "border-accent-500 bg-accent-50" : "border-primary-200 hover:border-primary-300"
-                }`}
-              >
-                <span className="text-2xl">{type.icon}</span>
-                <p className="text-sm font-semibold text-primary-900 mt-1">{type.label}</p>
-              </button>
-            ))}
-          </div>
-
-          {projectType === "wall" && (
-            <div className="space-y-4">
-              <Input label="Wall Length (meters)" id="wLength" type="number" value={wallDims.length.toString()} onChange={(e) => setWallDims({ ...wallDims, length: parseFloat(e.target.value) || 0 })} />
-              <Input label="Wall Height (meters)" id="wHeight" type="number" value={wallDims.height.toString()} onChange={(e) => setWallDims({ ...wallDims, height: parseFloat(e.target.value) || 0 })} />
-              <div>
-                <label className="block text-sm font-medium text-primary-700 mb-1">Wall Thickness</label>
-                <div className="flex gap-3">
-                  {(["4", "6", "8"] as const).map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => setWallDims({ ...wallDims, thickness: t })}
-                      className={`flex-1 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
-                        wallDims.thickness === t ? "border-accent-500 bg-accent-50 text-accent-700" : "border-primary-200 text-primary-600 hover:border-primary-300"
-                      }`}
-                    >
-                      {t}"
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {projectType === "floor" && (
-            <div className="space-y-4">
-              <Input label="Length (meters)" id="fLength" type="number" value={floorDims.length.toString()} onChange={(e) => setFloorDims({ ...floorDims, length: parseFloat(e.target.value) || 0 })} />
-              <Input label="Width (meters)" id="fWidth" type="number" value={floorDims.width.toString()} onChange={(e) => setFloorDims({ ...floorDims, width: parseFloat(e.target.value) || 0 })} />
-              <Input label="Thickness (cm)" id="fThick" type="number" value={floorDims.thickness.toString()} onChange={(e) => setFloorDims({ ...floorDims, thickness: parseFloat(e.target.value) || 0 })} />
-            </div>
-          )}
-
-          {projectType === "column" && (
-            <div className="space-y-4">
-              <Input label="Height (meters)" id="cHeight" type="number" value={colDims.height.toString()} onChange={(e) => setColDims({ ...colDims, height: parseFloat(e.target.value) || 0 })} />
-              <Input label="Width (cm)" id="cWidth" type="number" value={colDims.width.toString()} onChange={(e) => setColDims({ ...colDims, width: parseFloat(e.target.value) || 0 })} />
-              <Input label="Depth (cm)" id="cDepth" type="number" value={colDims.depth.toString()} onChange={(e) => setColDims({ ...colDims, depth: parseFloat(e.target.value) || 0 })} />
-            </div>
-          )}
-
-          {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
-
-          <Button size="lg" className="w-full mt-6" onClick={calculate}>
-            Calculate Materials
-          </Button>
+    <div className="bg-gradient-to-b from-primary-50/60 to-white min-h-screen">
+      <div className="max-w-7xl mx-auto px-4 py-10">
+        <div className="max-w-3xl mb-10">
+          <span className="inline-flex rounded-full bg-accent-500/10 px-3 py-1 text-sm font-semibold text-accent-700">Quotation & Material Estimator</span>
+          <h1 className="mt-3 text-3xl sm:text-4xl font-bold text-primary-900">Calculate your material requirements</h1>
+          <p className="mt-3 text-primary-600">Enter your project area to see configured material recommendations, estimated quantities, service costs, and a quotation summary.</p>
         </div>
 
-        {result && (
-          <div className="bg-white border border-primary-100 rounded-xl p-6">
-            <h2 className="text-lg font-bold text-primary-900 mb-4">Material Estimate</h2>
-
-            <div className="space-y-3 mb-6">
-              {result.materials.map((m, i) => (
-                <div key={i} className="flex items-center justify-between p-3 bg-primary-50 rounded-xl">
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-primary-900">{m.name}</p>
-                    <p className="text-xs text-primary-500">{Math.ceil(m.quantity)} {m.unit} x {formatPrice(m.unitPrice)}</p>
-                  </div>
-                  <div className="text-right flex items-center gap-3">
-                    <p className="text-sm font-bold text-accent-600">{formatPrice(m.totalPrice)}</p>
-                    <Button size="sm" onClick={() => addToCart(m)} disabled={!m.productId}>
-                      Add
-                    </Button>
-                  </div>
-                </div>
-              ))}
+        <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
+          <section className="rounded-2xl border border-primary-100 bg-white p-6 shadow-sm">
+            <h2 className="text-xl font-bold text-primary-900">1. Project information</h2>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <Input label="Length (meters)" id="estimate-length" type="number" min="0" value={length} onChange={(event) => setLength(event.target.value)} placeholder="Optional" />
+              <Input label="Width (meters)" id="estimate-width" type="number" min="0" value={width} onChange={(event) => setWidth(event.target.value)} placeholder="Optional" />
             </div>
-
-            <div className="border-t border-primary-200 pt-4">
-              <div className="flex justify-between text-lg font-bold text-primary-900">
-                <span>Total Estimated Cost</span>
-                <span>{formatPrice(result.subtotal)}</span>
+            <div className="mt-4">
+              <Input label="Area (m²)" id="estimate-area" type="number" min="0" value={area} onChange={(event) => setArea(event.target.value)} placeholder="Enter square meters directly" />
+              <p className="mt-1 text-xs text-primary-500">Calculated area: <strong>{computedArea ? computedArea.toFixed(2) : "0.00"} m²</strong></p>
+            </div>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-primary-700" htmlFor="project-type">Project type</label>
+                <select id="project-type" value={projectType} onChange={(event) => setProjectType(event.target.value)} className="w-full rounded-lg border border-primary-200 px-3 py-2.5 text-sm">
+                  <option value="landscaping">Landscaping</option><option value="pathway">Pathway / driveway</option><option value="garden">Garden / decorative</option><option value="construction">Construction</option><option value="other">Other</option>
+                </select>
               </div>
+              <div><Input label="Delivery location" id="estimate-city" value={deliveryCity} onChange={(event) => setDeliveryCity(event.target.value)} placeholder="City or municipality" /></div>
+              <div><label className="mb-1 block text-sm font-medium text-primary-700" htmlFor="estimate-zone">Delivery zone</label><select id="estimate-zone" value={deliveryZoneId} onChange={(event) => { setDeliveryZoneId(event.target.value); void recalculate(selectedProductId, selectedServiceIds); }} className="w-full rounded-lg border border-primary-200 px-3 py-2.5 text-sm"><option value="">Select a delivery zone</option>{deliveryZones.map((zone) => <option key={zone.id} value={zone.id}>{zone.name} · {formatPrice(zone.fee)}{zone.min_order_for_free ? ` free over ${formatPrice(zone.min_order_for_free)}` : ""}</option>)}</select></div>
+            </div>
+            <div className="mt-4"><Input label="Preferred schedule" id="estimate-timeline" value={timeline} onChange={(event) => setTimeline(event.target.value)} placeholder="e.g. Within 2 weeks" /></div>
+            <div className="mt-4">
+              <label className="mb-1 block text-sm font-medium text-primary-700" htmlFor="estimate-notes">Additional requirements</label>
+              <textarea id="estimate-notes" value={notes} onChange={(event) => setNotes(event.target.value)} rows={4} className="w-full rounded-lg border border-primary-200 px-3 py-2.5 text-sm" placeholder="Access details, preferred color, delivery notes, or other requirements" />
+            </div>
+            <Button size="lg" className="mt-6 w-full" onClick={calculate} disabled={loading}>{loading ? "Calculating…" : "Calculate requirements"}</Button>
+            {error && <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+            {message && <p className="mt-4 rounded-lg bg-accent-50 p-3 text-sm text-accent-800">{message}</p>}
+          </section>
+
+          <section className="space-y-6">
+            <div className="rounded-2xl border border-primary-100 bg-white p-6 shadow-sm">
+              <h2 className="text-xl font-bold text-primary-900">2. Recommended materials</h2>
+              <p className="mt-1 text-sm text-primary-500">Recommendations use only products configured by your administrator with a coverage rate.</p>
+              {!recommendations.length ? <div className="mt-6 rounded-xl bg-primary-50 p-8 text-center text-sm text-primary-500">Enter your area and calculate to see available materials.</div> : <div className="mt-5 grid gap-4">
+                {recommendations.map((item) => <div key={item.id} className={`rounded-xl border-2 p-4 transition ${selectedRecommendation?.id === item.id ? "border-accent-500 bg-accent-50/40" : "border-primary-100"}`}>
+                  <div className="flex gap-4">
+                    <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-3xl">💎</div>
+                    <div className="min-w-0 flex-1"><h3 className="font-bold text-primary-900">{item.name}</h3><p className="mt-1 line-clamp-2 text-xs text-primary-500">{item.description}</p><p className="mt-2 text-xs text-primary-600">Coverage: {item.coveragePerUnit} m²/{item.unit} · Wastage: {item.wastagePercent}%</p></div>
+                  </div>
+                  <div className="mt-4 flex flex-wrap items-end justify-between gap-3"><div><p className="text-sm text-primary-600">Estimated quantity</p><p className="text-lg font-bold text-primary-900">{item.estimate.recommendedQuantity} {item.unit}</p><p className="text-xs text-primary-500">{formatPrice(item.price)} / {item.unit} · {formatPrice(item.estimate.materialTotal)} estimated</p></div><Button size="sm" variant={selectedRecommendation?.id === item.id ? "primary" : "outline"} onClick={() => chooseMaterial(item.id)}>{selectedRecommendation?.id === item.id ? "Selected" : "Select material"}</Button></div>
+                </div>)}
+              </div>}
             </div>
 
-            <Button size="lg" className="w-full mt-4" onClick={addAllToCart}>
-              Add All to Cart
-            </Button>
-
-            <div className="mt-4 p-3 bg-accent-50 border border-accent-200 rounded-xl">
-              <p className="text-xs font-semibold text-accent-700 mb-1">Notes:</p>
-              {result.notes.map((note, i) => (
-                <p key={i} className="text-xs text-accent-600">• {note}</p>
-              ))}
+            <div className="rounded-2xl border border-primary-100 bg-white p-6 shadow-sm">
+              <h2 className="text-xl font-bold text-primary-900">3. Services</h2>
+              <p className="mt-1 text-sm text-primary-500">Choose any configured service. Per-square-meter services use your entered area.</p>
+              {!services.length ? <p className="mt-5 rounded-lg bg-primary-50 p-4 text-sm text-primary-500">No services have been configured yet. You can still request a material-only quotation.</p> : <div className="mt-4 space-y-3">{services.map((service) => <label key={service.id} className="flex cursor-pointer items-center justify-between rounded-lg border border-primary-100 p-3"><span className="flex items-start gap-3"><input type="checkbox" checked={selectedServiceIds.includes(service.id)} onChange={() => toggleService(service.id)} className="mt-1" /><span><strong className="block text-sm text-primary-900">{service.name}</strong><span className="text-xs text-primary-500">{service.description}</span></span></span><span className="text-sm font-semibold text-accent-700">{formatPrice(service.total || service.price)}{service.pricingModel === "per_sqm" ? "/m²" : ""}</span></label>)}</div>}
             </div>
-          </div>
-        )}
 
-        {!result && (
-          <div className="bg-primary-50 border border-primary-100 rounded-xl p-6 flex items-center justify-center">
-            <div className="text-center text-primary-400">
-              <span className="text-4xl block mb-2">📐</span>
-              <p className="text-sm">Enter your project dimensions and click Calculate to see material estimates</p>
+            <div className="rounded-2xl bg-primary-900 p-6 text-white shadow-lg">
+              <h2 className="text-xl font-bold">Quotation summary</h2>
+              <div className="mt-5 space-y-3 text-sm"><div className="flex justify-between"><span>Project area</span><strong>{computedArea ? `${computedArea.toFixed(2)} m²` : "—"}</strong></div><div className="flex justify-between"><span>Selected material</span><strong>{selectedRecommendation?.name || "—"}</strong></div><div className="flex justify-between"><span>Material estimate</span><strong>{formatPrice(currentTotals.materialTotal)}</strong></div><div className="flex justify-between"><span>Delivery</span><strong>{formatPrice(currentTotals.deliveryFee)}</strong></div><div className="flex justify-between"><span>Services</span><strong>{formatPrice(currentTotals.serviceTotal)}</strong></div><div className="border-t border-white/20 pt-3 flex justify-between text-lg"><span>Estimated total</span><strong className="text-accent-300">{formatPrice(currentTotals.total)}</strong></div></div>
+              <p className="mt-5 text-xs leading-relaxed text-primary-200">{DISCLAIMER}</p>
+              <Button size="lg" className="mt-5 w-full" onClick={requestQuotation} disabled={submitting}>{submitting ? "Submitting…" : isAuthenticated ? "Request this quotation" : "Sign in to request quotation"}</Button>
             </div>
-          </div>
-        )}
+          </section>
+        </div>
       </div>
     </div>
   );

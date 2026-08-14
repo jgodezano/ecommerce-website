@@ -14,6 +14,11 @@ interface Product {
   stock_status: string;
   featured: number;
   created_at: string;
+  coverage_per_unit?: number | null;
+  wastage_percent?: number;
+  minimum_quantity?: number;
+  estimation_enabled?: number | boolean;
+  is_active?: number | boolean;
 }
 
 interface Category {
@@ -40,7 +45,7 @@ export default function AdminProductsPage() {
   const [form, setForm] = useState({
     name: "", sku: "", categoryId: "", description: "", price: "", stock: "",
     stockStatus: "in_stock", unit: "pc", weight: "", materialType: "",
-    featured: false, images: "",
+    featured: false, images: "", coveragePerUnit: "", wastagePercent: "0", minimumQuantity: "1", estimationEnabled: false, isActive: true,
   });
 
   const fetchProducts = () => {
@@ -67,7 +72,7 @@ export default function AdminProductsPage() {
   const openAdd = () => {
     setMode("add");
     setEditId(null);
-    setForm({ name: "", sku: "", categoryId: "", description: "", price: "", stock: "", stockStatus: "in_stock", unit: "pc", weight: "", materialType: "", featured: false, images: "" });
+    setForm({ name: "", sku: "", categoryId: "", description: "", price: "", stock: "", stockStatus: "in_stock", unit: "pc", weight: "", materialType: "", featured: false, images: "", coveragePerUnit: "", wastagePercent: "0", minimumQuantity: "1", estimationEnabled: false, isActive: true });
   };
 
   const openEdit = (product: Product) => {
@@ -77,7 +82,7 @@ export default function AdminProductsPage() {
       name: product.name, sku: product.sku || "", categoryId: "",
       description: "", price: String(product.price), stock: String(product.stock),
       stockStatus: product.stock_status, unit: "pc", weight: "", materialType: "",
-      featured: !!product.featured, images: "",
+      featured: !!product.featured, images: "", coveragePerUnit: String(product.coverage_per_unit ?? ""), wastagePercent: String(product.wastage_percent ?? 0), minimumQuantity: String(product.minimum_quantity ?? 1), estimationEnabled: !!product.estimation_enabled, isActive: product.is_active !== 0,
     });
     // Fetch full product details for edit
     fetch(`/api/products?id=${product.id}`)
@@ -86,13 +91,18 @@ export default function AdminProductsPage() {
         if (data.product) {
           setForm((prev) => ({
             ...prev,
-            categoryId: data.product.category_id || "",
+            categoryId: data.product.categoryId || data.product.category_id || "",
             description: data.product.description || "",
             unit: data.product.unit || "pc",
             weight: data.product.weight || "",
-            materialType: data.product.material_type || "",
+            materialType: data.product.materialType || data.product.material_type || "",
             featured: !!data.product.featured,
             images: (data.product.images || []).join(", "),
+            coveragePerUnit: data.product.coveragePerUnit == null ? "" : String(data.product.coveragePerUnit),
+            wastagePercent: String(data.product.wastagePercent ?? 0),
+            minimumQuantity: String(data.product.minimumQuantity ?? 1),
+            estimationEnabled: !!data.product.estimationEnabled,
+            isActive: data.product.isActive !== false,
           }));
         }
       })
@@ -119,6 +129,11 @@ export default function AdminProductsPage() {
         materialType: form.materialType,
         featured: form.featured,
         images: imagesArray,
+        coveragePerUnit: form.coveragePerUnit === "" ? null : parseFloat(form.coveragePerUnit),
+        wastagePercent: parseFloat(form.wastagePercent) || 0,
+        minimumQuantity: parseInt(form.minimumQuantity) || 1,
+        estimationEnabled: form.estimationEnabled,
+        isActive: form.isActive,
       };
 
       const res = await fetch("/api/admin/products", {
@@ -225,6 +240,20 @@ export default function AdminProductsPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
+                  <label className="block text-sm font-medium text-primary-700 mb-1">Coverage per Unit (m²)</label>
+                  <input type="number" min="0" step="0.01" value={form.coveragePerUnit} onChange={(e) => setForm({ ...form, coveragePerUnit: e.target.value })} placeholder="Required for estimator" className="w-full rounded-lg border border-primary-300 px-3 py-2 text-sm focus:outline-none focus:border-accent-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-primary-700 mb-1">Wastage (%)</label>
+                  <input type="number" min="0" step="0.1" value={form.wastagePercent} onChange={(e) => setForm({ ...form, wastagePercent: e.target.value })} className="w-full rounded-lg border border-primary-300 px-3 py-2 text-sm focus:outline-none focus:border-accent-500" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-primary-700 mb-1">Minimum Quantity</label>
+                  <input type="number" min="1" value={form.minimumQuantity} onChange={(e) => setForm({ ...form, minimumQuantity: e.target.value })} className="w-full rounded-lg border border-primary-300 px-3 py-2 text-sm focus:outline-none focus:border-accent-500" />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-primary-700 mb-1">Stock Status</label>
                   <select value={form.stockStatus} onChange={(e) => setForm({ ...form, stockStatus: e.target.value })}
                     className="w-full rounded-lg border border-primary-300 px-3 py-2 text-sm bg-white focus:outline-none focus:border-accent-500">
@@ -241,7 +270,15 @@ export default function AdminProductsPage() {
                     className="w-full rounded-lg border border-primary-300 px-3 py-2 text-sm focus:outline-none focus:border-accent-500" />
                 </div>
               </div>
-              <div className="flex items-center gap-3 pt-2">
+              <div className="flex flex-wrap items-center gap-4 pt-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={form.estimationEnabled} onChange={(e) => setForm({ ...form, estimationEnabled: e.target.checked })} className="rounded border-primary-300 text-accent-500 focus:ring-accent-500" />
+                  <span className="text-sm font-medium text-primary-700">Enable in estimator</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} className="rounded border-primary-300 text-accent-500 focus:ring-accent-500" />
+                  <span className="text-sm font-medium text-primary-700">Active on storefront</span>
+                </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
@@ -276,6 +313,7 @@ export default function AdminProductsPage() {
                 <th className="text-left px-6 py-3 font-semibold text-primary-700">Category</th>
                 <th className="text-left px-6 py-3 font-semibold text-primary-700">Price</th>
                 <th className="text-left px-6 py-3 font-semibold text-primary-700">Stock</th>
+                <th className="text-left px-6 py-3 font-semibold text-primary-700">Coverage</th>
                 <th className="text-left px-6 py-3 font-semibold text-primary-700">Status</th>
                 <th className="text-right px-6 py-3 font-semibold text-primary-700">Actions</th>
               </tr>
@@ -309,6 +347,7 @@ export default function AdminProductsPage() {
                     </td>
                     <td className="px-6 py-4 font-medium text-primary-900">{formatPrice(product.price)}</td>
                     <td className="px-6 py-4 text-primary-600">{product.stock}</td>
+                    <td className="px-6 py-4 text-primary-600 text-xs">{product.coverage_per_unit ? `${product.coverage_per_unit} m²` : "Not set"}</td>
                     <td className="px-6 py-4">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STOCK_STATUS_COLORS[product.stock_status] || "text-gray-600 bg-gray-50"}`}>
                         {product.stock_status.replace(/_/g, " ")}

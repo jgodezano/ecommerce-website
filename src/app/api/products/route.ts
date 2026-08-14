@@ -25,6 +25,11 @@ function transformProduct(row: any) {
     featured: !!row.featured,
     bestSeller: !!row.best_seller,
     deliveryInfo: row.delivery_info || "",
+    coveragePerUnit: row.coverage_per_unit == null ? null : Number(row.coverage_per_unit),
+    wastagePercent: Number(row.wastage_percent || 0),
+    minimumQuantity: Number(row.minimum_quantity || 1),
+    estimationEnabled: row.estimation_enabled == null ? false : !!row.estimation_enabled,
+    isActive: row.is_active == null ? true : !!row.is_active,
     createdAt: row.created_at || "",
     relatedProductIds: [],
   };
@@ -57,7 +62,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ product: transformProduct(product) });
   }
 
-  let query = "SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE 1=1";
+  let query = "SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE COALESCE(p.is_active, 1) = 1";
   const params: any[] = [];
 
   if (category) {
