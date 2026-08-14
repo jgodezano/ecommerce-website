@@ -70,9 +70,9 @@ export default function Header() {
   }, []);
 
   return (
-    <header className="sticky top-0 z-50 bg-white shadow-sm">
+    <header className="sticky top-0 z-50 bg-white/95 shadow-sm backdrop-blur">
       {/* TOP BAR */}
-      <div className="bg-primary-900 text-white text-xs">
+      <div className="bg-slate-950 text-white text-xs">
         <div className="max-w-7xl mx-auto px-4 flex items-center justify-between h-9">
           <div className="flex items-center gap-4">
             <a href="mailto:enricoamanalo@yahoo.com" className="flex items-center gap-1.5 hover:text-accent-400 transition-colors">
@@ -123,7 +123,7 @@ export default function Header() {
 
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2 shrink-0">
-              <div className="w-10 h-10 bg-accent-500 rounded-lg flex items-center justify-center">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-900/20">
                 <span className="text-white font-bold text-lg">MR</span>
               </div>
               <div className="hidden sm:block">
@@ -140,11 +140,11 @@ export default function Header() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search for crystals, gemstones, fossils..."
-                  className="w-full h-10 lg:h-12 pl-4 pr-12 border-2 border-gray-200 rounded-lg text-sm focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/10 bg-gray-50"
+                  className="w-full h-10 lg:h-12 pl-4 pr-12 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 bg-stone-50"
                 />
                 <button
                   type="submit"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-8 lg:h-10 w-8 lg:w-10 flex items-center justify-center bg-accent-500 text-white rounded-md hover:bg-accent-600 transition-colors"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-8 lg:h-10 w-8 lg:w-10 flex items-center justify-center bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors"
                 >
                   <MagnifyingGlassIcon className="w-4 h-4" />
                 </button>
@@ -154,12 +154,12 @@ export default function Header() {
             {/* Right icons */}
             <div className="flex items-center gap-1 lg:gap-2">
               {isCustomer ? (
-                <Link href="/account" className="hidden sm:flex flex-col items-center px-2 lg:px-3 py-1 text-gray-600 hover:text-accent-500 rounded-lg hover:bg-gray-50 transition-colors">
+                <Link href="/account" className="hidden sm:flex flex-col items-center px-2 lg:px-3 py-1 text-gray-600 hover:text-emerald-700 rounded-xl hover:bg-emerald-50 transition-colors">
                   <UserIcon className="w-5 h-5" />
                   <span className="text-[10px] font-medium mt-0.5">{customer?.firstName || "Account"}</span>
                 </Link>
               ) : (
-                <Link href="/login" className="hidden sm:flex flex-col items-center px-2 lg:px-3 py-1 text-gray-600 hover:text-accent-500 rounded-lg hover:bg-gray-50 transition-colors">
+                <Link href="/login" className="hidden sm:flex flex-col items-center px-2 lg:px-3 py-1 text-gray-600 hover:text-emerald-700 rounded-xl hover:bg-emerald-50 transition-colors">
                   <UserIcon className="w-5 h-5" />
                   <span className="text-[10px] font-medium mt-0.5">Account</span>
                 </Link>
@@ -168,11 +168,11 @@ export default function Header() {
                 <HeartIcon className="w-5 h-5" />
                 <span className="text-[10px] font-medium mt-0.5">Wishlist</span>
               </Link>
-              <button onClick={toggleQuote} className="flex flex-col items-center px-2 lg:px-3 py-1 text-gray-600 hover:text-accent-500 rounded-lg hover:bg-gray-50 transition-colors relative">
+              <button onClick={toggleQuote} className="flex flex-col items-center px-2 lg:px-3 py-1 text-gray-600 hover:text-emerald-700 rounded-xl hover:bg-emerald-50 transition-colors relative">
                 <DocumentTextIcon className="w-5 h-5" />
                 <span className="text-[10px] font-medium mt-0.5">Quotes</span>
                 {quoteItemCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-accent-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-emerald-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
                     {quoteItemCount}
                   </span>
                 )}
@@ -186,6 +186,11 @@ export default function Header() {
       <nav className="hidden lg:block bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4">
           <ul className="flex items-center">
+            <li className="ml-auto order-last">
+              <Link href="/estimator" className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">
+                Get Estimate <span aria-hidden="true">→</span>
+              </Link>
+            </li>
             <li className="relative">
               <button
                 onMouseEnter={() => handleMegaEnter("shop")}
@@ -236,7 +241,7 @@ export default function Header() {
               <li key={cat.id}>
                 <Link
                   href={`/categories/${cat.slug}`}
-                  className="block px-4 py-3 text-sm font-medium text-gray-600 hover:text-accent-500 hover:bg-gray-50 transition-colors"
+                  className="block px-4 py-3 text-sm font-medium text-gray-600 hover:text-emerald-700 hover:bg-emerald-50 transition-colors"
                 >
                   {cat.name}
                 </Link>
@@ -285,7 +290,7 @@ export default function Header() {
               </Link>
             ))}
             <div className="border-t border-gray-100 pt-2 mt-2">
-              <Link href="/estimator" className="block px-3 py-2.5 text-sm font-medium text-gray-700 rounded-lg hover:bg-accent-50" onClick={() => setMobileMenuOpen(false)}>Project Estimator</Link>
+              <Link href="/estimator" className="flex items-center justify-between rounded-xl bg-emerald-600 px-3 py-3 text-sm font-semibold text-white" onClick={() => setMobileMenuOpen(false)}>Get Your Estimate <span>→</span></Link>
               <Link href="/gallery" className="block px-3 py-2.5 text-sm text-gray-600 rounded-lg hover:bg-accent-50" onClick={() => setMobileMenuOpen(false)}>Project Gallery</Link>
               <Link href="/quote" className="block px-3 py-2.5 text-sm font-medium text-gray-700 rounded-lg hover:bg-accent-50" onClick={() => setMobileMenuOpen(false)}>Request a Quote</Link>
               <Link href="/about" className="block px-3 py-2.5 text-sm text-gray-600 rounded-lg hover:bg-accent-50" onClick={() => setMobileMenuOpen(false)}>About Us</Link>
