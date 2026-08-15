@@ -58,6 +58,13 @@ function seedEstimationDefaults(db: ReturnType<typeof getDb>) {
       coverage: 0.18, wastage: 8, tags: ["repair-fix", "masonry", "construction", "structural", "build-new", "foundation", "terrace"], projects: ["wall", "construction", "terrace", "other"],
       usage: "heavy", finish: "practical", location: "both", drainage: 0, heavyLoad: 1, color: "neutral",
     },
+    {
+      id: "concrete-hollow-block-4in", name: "Concrete Hollow Block 4in", slug: "concrete-hollow-block-4in", sku: "CM-CHB04",
+      description: "Standard concrete masonry block for garden walls, partitions, retaining work, and small structural builds.",
+      image: "/images/home/landscape-rocks.webp", unit: "piece", price: 18, stock: 10000, materialType: "Concrete masonry block",
+      coverage: 0.08, wastage: 8, tags: ["repair-fix", "masonry", "wall", "construction", "structural", "build-new", "terrace"], projects: ["wall", "construction", "terrace", "other"],
+      usage: "heavy", finish: "practical", location: "both", drainage: 0, heavyLoad: 1, color: "neutral",
+    },
   ];
 
   const insertProduct = db.prepare(`INSERT OR IGNORE INTO products

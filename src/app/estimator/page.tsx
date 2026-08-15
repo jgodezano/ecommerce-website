@@ -28,8 +28,16 @@ type Service = { id: string; name: string; description: string; pricingModel: "f
 type DeliveryZone = { id: string; name: string; fee: number; min_order_for_free?: number; estimated_days?: string };
 type Question = { key: QuestionKey; title: string; help: string; options: { value: string; label: string; description: string }[]; when?: (profile: ProjectProfile) => boolean };
 type QuestionKey = keyof ProjectProfile;
+type FollowUpAction = "official_review" | "site_visit";
 
 const INITIAL_PROFILE: ProjectProfile = { projectType: "", useCase: "", loadRequirement: "medium", surfaceType: "soil", drainagePriority: "medium", style: "", colorPreference: "any", maintenance: "medium", indoorOutdoor: "outdoor", budget: "standard", constructionStage: "", constructionMethod: "", customProject: "" };
+const STYLE_GUIDANCE: Record<string, string> = {
+  natural: "Natural direction: combine earthy tones, irregular textures, and planting-friendly materials. Use this as a starting style, then confirm the final finish on site.",
+  modern: "Modern direction: prioritize clean edges, consistent sizing, and neutral or contrasting finishes for a structured look.",
+  rustic: "Rustic direction: prioritize warm earth tones, textured surfaces, and materials with natural variation.",
+  tropical: "Tropical direction: prioritize durable outdoor finishes, warm accents, and planting-friendly surfaces.",
+  clean: "Clean and simple direction: prioritize consistent sizing, restrained colors, and low-maintenance finishes.",
+};
 const QUESTIONS: Question[] = [
   { key: "projectType", title: "What are you building?", help: "This helps us distinguish between decorative, access, walls, and structural needs.", options: [{ value: "landscaping", label: "Landscape feature", description: "Garden beds, borders, accents" }, { value: "garden", label: "Garden area", description: "Planting beds and outdoor spaces" }, { value: "pathway", label: "Walkway or patio", description: "Pedestrian paths and sitting areas" }, { value: "driveway", label: "Driveway or parking", description: "Vehicle access and parking" }, { value: "drainage", label: "Drainage or erosion", description: "Runoff, slopes, and water control" }, { value: "construction", label: "Construction base", description: "A stable base or fill application" }, { value: "other", label: "Other / Custom project", description: "Fixing walls, retaining structures, or custom builds" }] },
   { key: "useCase", title: "What will the material do?", help: "Choose the main job so we can prioritize the right performance characteristics.", options: [{ value: "repair-fix", label: "Repair or fix existing", description: "Fixing walls, filling cracks, or refreshing an area" }, { value: "build-new", label: "Build something new", description: "Create a new feature, wall, or structure from scratch" }, { value: "decorative", label: "Add decoration / finish", description: "Improve visual appeal, color, and texture" }, { value: "structural", label: "Provide structural support", description: "Base layers, retaining weight, or load-bearing" }, { value: "drainage", label: "Manage drainage or erosion", description: "Water control, runoff, and soil protection" }, { value: "maintenance", label: "Reduce maintenance", description: "Covering soil, suppressing weeds, or easy-care surfaces" }] },
@@ -58,7 +66,7 @@ export default function EstimatorPage() {
   const [deliveryCity, setDeliveryCity] = useState(""); const [deliveryZoneId, setDeliveryZoneId] = useState(""); const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]); const [timeline, setTimeline] = useState(""); const [notes, setNotes] = useState("");
   const [profile, setProfile] = useState<ProjectProfile>(INITIAL_PROFILE); const [questionnaireOpen, setQuestionnaireOpen] = useState(false); const [editingInputs, setEditingInputs] = useState(true); const [questionIndex, setQuestionIndex] = useState(0);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]); const [services, setServices] = useState<Service[]>([]); const [selectedProductId, setSelectedProductId] = useState(""); const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]); const [estimate, setEstimate] = useState<any>(null);
-  const [loading, setLoading] = useState(false); const [submitting, setSubmitting] = useState(false); const [message, setMessage] = useState(""); const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false); const [submitting, setSubmitting] = useState(false); const [message, setMessage] = useState(""); const [error, setError] = useState(""); const [handoffPending, setHandoffPending] = useState(false); const [submittedQuoteId, setSubmittedQuoteId] = useState(""); const [submittedQuoteNumber, setSubmittedQuoteNumber] = useState("");
 
   useEffect(() => {
     fetch("/api/delivery").then((response) => response.json()).then((data) => setDeliveryZones(data.zones || [])).catch(() => {});
@@ -66,6 +74,39 @@ export default function EstimatorPage() {
     if (query.get("area")) setArea(query.get("area") || "");
     if (query.get("depth")) setDepthCm(query.get("depth") || "5");
     if (query.get("material")) setSelectedProductId(query.get("material") || "");
+    if (query.get("zone")) setDeliveryZoneId(query.get("zone") || "");
+    if (query.get("services")) setSelectedServiceIds((query.get("services") || "").split(",").filter(Boolean));
+    const profileParam = query.get("profile");
+    const pendingParam = !profileParam ? sessionStorage.getItem("pendingEstimate") : null;
+    if (profileParam || pendingParam) {
+      try {
+        const transferred = profileParam ? JSON.parse(profileParam) as Partial<ProjectProfile> : (JSON.parse(pendingParam || "{}")?.projectProfile as Partial<ProjectProfile>);
+        const restored = { ...INITIAL_PROFILE, ...transferred };
+        const pending = pendingParam ? JSON.parse(pendingParam) : null;
+        const restoredDepth = String(profileParam ? (query.get("depth") || "5") : (pending?.depthCm || "5"));
+        const restoredArea = Number(profileParam ? (query.get("area") || "0") : (pending?.areaSqm || 0));
+        const depthFactor = (Number(restoredDepth) || 5) / 5;
+        setArea(restoredArea > 0 ? String(restoredArea / depthFactor) : "");
+        setDepthCm(restoredDepth);
+        setProfile(restored);
+        setCustomProject(String(transferred.customProject || ""));
+        if (pending?.selectedProductId) setSelectedProductId(String(pending.selectedProductId));
+        if (pending?.selectedServiceIds) setSelectedServiceIds(pending.selectedServiceIds.map(String));
+        if (pending?.deliveryCity) setDeliveryCity(String(pending.deliveryCity));
+        if (pending?.deliveryZoneId) setDeliveryZoneId(String(pending.deliveryZoneId));
+        if (pending?.timeline) setTimeline(String(pending.timeline));
+        if (pending?.notes) setNotes(String(pending.notes));
+        setEditingInputs(false);
+        setQuestionnaireOpen(false);
+        setHandoffPending(true);
+        if (pendingParam) {
+          sessionStorage.removeItem("pendingEstimate");
+          setMessage("Your saved estimate was restored. Review the details below, then choose official review or a site visit.");
+        }
+      } catch {
+        setError("The transferred project details could not be read. You can enter them again below.");
+      }
+    }
   }, []);
 
   const computedArea = useMemo(() => {
@@ -83,6 +124,7 @@ export default function EstimatorPage() {
   const useCaseLabel = QUESTIONS[1].options.find((option) => option.value === profile.useCase)?.label || profile.useCase;
   const constructionStageLabel = QUESTIONS.find((item) => item.key === "constructionStage")?.options.find((option) => option.value === profile.constructionStage)?.label || profile.constructionStage;
   const constructionMethodLabel = QUESTIONS.find((item) => item.key === "constructionMethod")?.options.find((option) => option.value === profile.constructionMethod)?.label || profile.constructionMethod;
+  const styleGuidance = STYLE_GUIDANCE[profile.style] || "Style direction: we will use your answers and available inventory as a practical starting point. Final appearance should be confirmed with a sample or site review.";
   const activeStep = questionnaireOpen ? 2 : estimate ? 3 : 1;
 
   const calculate = async (nextProductId = selectedProductId, nextServiceIds = selectedServiceIds, nextProfile = profile) => {
@@ -118,6 +160,11 @@ export default function EstimatorPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!handoffPending || !computedArea || !profile.projectType) return;
+    void calculate(selectedProductId, selectedServiceIds, profile).finally(() => setHandoffPending(false));
+  }, [handoffPending, computedArea, profile.projectType]);
 
   const startQuestionnaire = () => {
     setError("");
@@ -172,9 +219,14 @@ export default function EstimatorPage() {
   const chooseMaterial = async (id: string) => { setSelectedProductId(id); await calculate(id, selectedServiceIds, profile); };
   const toggleService = async (id: string) => { const next = selectedServiceIds.includes(id) ? selectedServiceIds.filter((item) => item !== id) : [...selectedServiceIds, id]; setSelectedServiceIds(next); await calculate(selectedProductId, next, profile); };
 
-  const requestQuotation = async () => {
+  const requestQuotation = async (action: FollowUpAction = "official_review") => {
     if (!selectedRecommendation || !computedArea) { setError("Complete the project questions and select a material first."); return; }
-    if (!isAuthenticated) { sessionStorage.setItem("pendingEstimate", JSON.stringify({ areaSqm: computedArea, depthCm, selectedProductId, selectedServiceIds, projectProfile: profile, deliveryCity, deliveryZoneId, timeline, notes })); router.push("/login?redirect=/estimator"); return; }
+    if (!isAuthenticated) {
+      const resumePath = `/estimator?area=${encodeURIComponent(computedArea.toString())}&depth=${encodeURIComponent(depthCm || "5")}${selectedRecommendation ? `&material=${encodeURIComponent(selectedRecommendation.id)}` : ""}${deliveryZoneId ? `&zone=${encodeURIComponent(deliveryZoneId)}` : ""}${selectedServiceIds.length ? `&services=${encodeURIComponent(selectedServiceIds.join(","))}` : ""}&profile=${encodeURIComponent(JSON.stringify({ ...profile, customProject }))}`;
+      sessionStorage.setItem("pendingEstimate", JSON.stringify({ areaSqm: computedArea, depthCm, selectedProductId, selectedServiceIds, projectProfile: profile, deliveryCity, deliveryZoneId, timeline, notes, followUpAction: action }));
+      router.push(`/login?redirect=${encodeURIComponent(resumePath)}`);
+      return;
+    }
     setSubmitting(true); setError("");
     try {
       const response = await fetch("/api/quotes", {
@@ -191,13 +243,13 @@ export default function EstimatorPage() {
           otherCharges: currentTotals.otherCharges,
           discount: currentTotals.discount,
           total: currentTotals.total,
-          notes,
+          notes: action === "site_visit" ? `[SITE VISIT REQUESTED] ${notes}`.trim() : notes,
           projectType: profile.projectType === "other" && customProject ? `other: ${customProject}` : profile.projectType,
           deliveryCity,
           timeline,
           projectLocation: deliveryCity,
           deliveryZoneId,
-          projectDetails: { projectProfile: profile, depthCm, useCase: profile.useCase, loadRequirement: profile.loadRequirement, surfaceType: profile.surfaceType, drainagePriority: profile.drainagePriority, style: profile.style, colorPreference: profile.colorPreference, maintenance: profile.maintenance, indoorOutdoor: profile.indoorOutdoor, budget: profile.budget },
+          projectDetails: { projectProfile: profile, depthCm, useCase: profile.useCase, loadRequirement: profile.loadRequirement, surfaceType: profile.surfaceType, drainagePriority: profile.drainagePriority, style: profile.style, colorPreference: profile.colorPreference, maintenance: profile.maintenance, indoorOutdoor: profile.indoorOutdoor, budget: profile.budget, followUpAction: action },
           customerName: [user?.firstName, user?.lastName].filter(Boolean).join(" "),
           customerEmail: user?.email || "",
           customerPhone: user?.phone || "",
@@ -206,7 +258,9 @@ export default function EstimatorPage() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Failed to submit quotation");
-      setMessage(`Quotation ${data.quoteNumber} submitted successfully. Our team will review it and contact you.`);
+      setSubmittedQuoteId(data.quoteId || "");
+      setSubmittedQuoteNumber(data.quoteNumber || "");
+      setMessage(action === "site_visit" ? `Site visit request ${data.quoteNumber} submitted. Our team will confirm the visit details.` : `Quotation ${data.quoteNumber} submitted for official review. Our team will review it and contact you.`);
     } catch (err: any) {
       setError(err.message || "Failed to submit quotation");
     } finally {
@@ -242,7 +296,9 @@ export default function EstimatorPage() {
               <h2 className="text-xl font-semibold text-slate-950">01. Enter area and application depth</h2>
               <p className="mt-2 text-sm text-slate-600">Provide your project dimensions. Depth (thickness) helps scale volume accurately for gravel, base courses, and aggregates.</p>
 
-              {estimate && !questionnaireOpen && !editingInputs ? (
+              {handoffPending ? (
+                <div className="mt-6 flex items-center rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-900"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Restoring your project summary and quotation…</div>
+              ) : estimate && !questionnaireOpen && !editingInputs ? (
                 <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
                   <div className="flex items-center justify-between gap-3"><p className="text-xs font-semibold uppercase tracking-[.15em] text-emerald-700">Project summary</p><button type="button" onClick={() => { setEstimate(null); setRecommendations([]); setEditingInputs(true); }} className="text-xs font-semibold text-emerald-700 hover:text-emerald-900">Edit details</button></div>
                   <dl className="mt-4 space-y-3 text-sm"><div className="flex justify-between gap-4"><dt className="text-slate-500">Project</dt><dd className="text-right font-semibold text-slate-950">{profile.projectType === "other" && customProject ? customProject : projectTypeLabel}</dd></div><div className="flex justify-between gap-4"><dt className="text-slate-500">Main need</dt><dd className="text-right font-semibold text-slate-950">{useCaseLabel || "Not specified"}</dd></div>{constructionStageLabel && <div className="flex justify-between gap-4"><dt className="text-slate-500">Stage</dt><dd className="text-right font-semibold text-slate-950">{constructionStageLabel}</dd></div>}{constructionMethodLabel && <div className="flex justify-between gap-4"><dt className="text-slate-500">Construction focus</dt><dd className="text-right font-semibold text-slate-950">{constructionMethodLabel}</dd></div>}<div className="flex justify-between gap-4"><dt className="text-slate-500">Effective area</dt><dd className="text-right font-semibold text-slate-950">{computedArea.toFixed(2)} m² · {depthCm || 5} cm</dd></div></dl>
@@ -314,7 +370,8 @@ export default function EstimatorPage() {
                         <div className="flex items-start justify-between gap-4">
                           <div>
                             <p className="font-semibold text-slate-950">{item.name}</p>
-                            <p className="mt-1 text-xs text-slate-600">{item.coveragePerUnit} m²/{item.unit} · {item.wastagePercent}% wastage · <strong className="text-emerald-700">{item.estimate.recommendedQuantity} {item.unit}</strong> recommended</p>
+                            <div className="mt-2 flex items-baseline gap-2"><span className="text-2xl font-bold text-emerald-800">{item.estimate.recommendedQuantity}</span><span className="text-sm font-semibold text-emerald-800">{item.unit} estimated</span></div>
+                            <p className="mt-1 text-xs text-slate-600">Based on {item.coveragePerUnit} m²/{item.unit} coverage and {item.wastagePercent}% allowance</p>
                             {item.matchReasons?.length ? <p className="mt-2 text-xs font-medium text-emerald-800">{item.matchReasons.join(" · ")}</p> : null}
                           </div>
                           <p className="text-base font-bold text-slate-950">{formatPrice(item.estimate.materialTotal)}</p>
@@ -322,6 +379,8 @@ export default function EstimatorPage() {
                       </button>
                     ))}
                   </div>
+
+                  <div className="rounded-2xl border border-sky-200 bg-sky-50 p-5"><p className="text-xs font-semibold uppercase tracking-[.15em] text-sky-700">Optional style direction</p><p className="mt-2 text-sm leading-6 text-sky-950">{styleGuidance}</p><p className="mt-2 text-xs leading-5 text-sky-800">For repairs and custom work, this is guidance only because the existing site condition and exact finish cannot be verified from the questionnaire.</p></div>
 
                   <div className="rounded-2xl border border-slate-200 p-5">
                     <label className="block text-sm font-semibold text-slate-800">Select delivery zone</label>
@@ -362,8 +421,12 @@ export default function EstimatorPage() {
                       <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add any specific site instructions or delivery details..." className="mt-2 w-full rounded-xl border border-white/25 bg-white/10 p-3 text-sm text-white outline-none focus:border-emerald-300" rows={2} />
                     </div>
 
-                    <Button onClick={requestQuotation} disabled={submitting} size="lg" className="mt-6 w-full bg-emerald-400 text-slate-950 hover:bg-emerald-300">{submitting ? "Submitting…" : "Request official quotation"} <ArrowRight className="ml-2 h-4 w-4" /></Button>
-                    {message && <p className="mt-4 rounded-xl border border-emerald-300/30 bg-emerald-400/20 p-3 text-sm text-emerald-200">{message}</p>}
+                    <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                      <Button onClick={() => void requestQuotation("official_review")} disabled={submitting} size="lg" className="bg-emerald-400 text-slate-950 hover:bg-emerald-300">{submitting ? "Submitting…" : "Request official review"} <ArrowRight className="ml-2 h-4 w-4" /></Button>
+                      <Button onClick={() => void requestQuotation("site_visit")} disabled={submitting} size="lg" variant="outline" className="border-white/30 bg-white/10 text-white hover:bg-white/20">Request a site visit</Button>
+                    </div>
+                    <p className="mt-3 text-xs leading-5 text-slate-400">Use official review for a material and service confirmation. Choose a site visit when the existing conditions, wall, terrace, or repair need to be checked in person.</p>
+                    {message && <div className="mt-4 rounded-xl border border-emerald-300/30 bg-emerald-400/20 p-3 text-sm text-emerald-200"><p>{message}</p>{submittedQuoteId && <div className="mt-3 flex flex-wrap gap-3"><a href="/account/quotes" className="font-semibold underline">Track this request</a><a href={`/api/quotes/${submittedQuoteId}/pdf`} target="_blank" rel="noreferrer" className="font-semibold underline">Download project PDF</a></div>}</div>}
                   </div>
                 </div>
               )}

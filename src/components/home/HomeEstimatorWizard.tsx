@@ -38,6 +38,13 @@ type DeliveryZone = { id: string; name: string; fee: number; min_order_for_free?
 type Question = { key: keyof ProjectProfile; title: string; help: string; options: { value: string; label: string; description: string }[]; when?: (profile: ProjectProfile) => boolean };
 
 const EMPTY_PROFILE: ProjectProfile = { projectType: "", useCase: "", loadRequirement: "", surfaceType: "", drainagePriority: "", style: "", colorPreference: "", maintenance: "", indoorOutdoor: "", budget: "", constructionStage: "", constructionMethod: "", customProject: "" };
+const STYLE_GUIDANCE: Record<string, string> = {
+  natural: "Natural direction: combine earthy tones, irregular textures, and planting-friendly materials. Use this as a starting style, then confirm the final finish on site.",
+  modern: "Modern direction: prioritize clean edges, consistent sizing, and neutral or contrasting finishes for a structured look.",
+  rustic: "Rustic direction: prioritize warm earth tones, textured surfaces, and materials with natural variation.",
+  tropical: "Tropical direction: prioritize durable outdoor finishes, warm accents, and planting-friendly surfaces.",
+  clean: "Clean and simple direction: prioritize consistent sizing, restrained colors, and low-maintenance finishes.",
+};
 
 const QUESTIONS: Question[] = [
   { key: "projectType", title: "What are you building?", help: "This helps distinguish decorative, access, drainage, walls, and structural needs.", options: [{ value: "landscaping", label: "Landscape feature", description: "Garden beds, borders, accents" }, { value: "garden", label: "Garden area", description: "Planting beds and outdoor spaces" }, { value: "pathway", label: "Walkway or patio", description: "Pedestrian paths and sitting areas" }, { value: "driveway", label: "Driveway or parking", description: "Vehicle access and parking" }, { value: "drainage", label: "Drainage or erosion", description: "Runoff, slopes, and water control" }, { value: "construction", label: "Construction base", description: "A stable base or fill application" }, { value: "other", label: "Other / Custom project", description: "Fixing walls, retaining structures, or custom builds" }] },
@@ -103,6 +110,7 @@ export default function HomeEstimatorWizard() {
   const useCaseLabel = QUESTIONS[1].options.find((option) => option.value === profile.useCase)?.label || profile.useCase;
   const constructionStageLabel = QUESTIONS.find((item) => item.key === "constructionStage")?.options.find((option) => option.value === profile.constructionStage)?.label || profile.constructionStage;
   const constructionMethodLabel = QUESTIONS.find((item) => item.key === "constructionMethod")?.options.find((option) => option.value === profile.constructionMethod)?.label || profile.constructionMethod;
+  const styleGuidance = STYLE_GUIDANCE[profile.style] || "Style direction: we will use your answers and available inventory as a practical starting point. Final appearance should be confirmed with a sample or site review.";
 
   const calculate = async (nextProductId = selectedProductId, nextServiceIds = selectedServiceIds, nextDeliveryZoneId = deliveryZoneId, nextProfile = profile) => {
     setError("");
@@ -327,7 +335,8 @@ export default function HomeEstimatorWizard() {
                           <div className="flex items-start justify-between gap-4">
                             <div>
                               <p className="font-semibold text-slate-950">{item.name}</p>
-                              <p className="mt-1 text-xs text-slate-600">{item.coveragePerUnit} m²/{item.unit} · {item.wastagePercent}% wastage · {item.estimate.recommendedQuantity} {item.unit} recommended</p>
+                              <div className="mt-2 flex items-baseline gap-2"><span className="text-2xl font-bold text-emerald-800">{item.estimate.recommendedQuantity}</span><span className="text-sm font-semibold text-emerald-800">{item.unit} estimated</span></div>
+                              <p className="mt-1 text-xs text-slate-600">Based on {item.coveragePerUnit} m²/{item.unit} coverage and {item.wastagePercent}% allowance</p>
                               {item.matchReasons?.length ? <p className="mt-2 text-xs leading-5 text-emerald-800">{item.matchReasons.join(" · ")}</p> : null}
                             </div>
                             <p className="whitespace-nowrap text-sm font-bold text-emerald-800">{formatPrice(item.estimate.materialTotal)}</p>
@@ -336,6 +345,8 @@ export default function HomeEstimatorWizard() {
                       )) : <p className="text-sm text-emerald-900">No configured inventory matched those answers yet. Try another project profile or configure more demo materials in Admin → Products.</p>}
                     </div>
                   </div>
+
+                  <div className="rounded-2xl border border-sky-200 bg-sky-50 p-5"><p className="text-xs font-semibold uppercase tracking-[.15em] text-sky-700">Optional style direction</p><p className="mt-2 text-sm leading-6 text-sky-950">{styleGuidance}</p><p className="mt-2 text-xs leading-5 text-sky-800">For repairs and custom work, this is guidance only because the existing site condition and exact finish cannot be verified from the questionnaire.</p></div>
 
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label className="rounded-xl border border-slate-200 p-4 text-sm font-semibold text-slate-700">Delivery zone
@@ -375,7 +386,7 @@ export default function HomeEstimatorWizard() {
                       <span className="text-2xl font-bold text-emerald-300">{formatPrice(currentTotals.total)}</span>
                     </div>
                     <p className="mt-3 text-xs leading-5 text-slate-400">Demo quotation based on configured SQLite inventory. Final pricing and availability can be confirmed when you connect the production database.</p>
-                    <Link href={`/estimator?area=${computedArea}&depth=${depthCm}${selectedRecommendation ? `&material=${selectedRecommendation.id}` : ""}`} className="mt-5 inline-flex w-full items-center justify-center rounded-xl bg-emerald-400 px-4 py-3 text-sm font-semibold text-slate-950 hover:bg-emerald-300">Open full quotation <ArrowRight className="ml-2 h-4 w-4" /></Link>
+                      <Link href={`/estimator?area=${encodeURIComponent(computedArea.toString())}&depth=${encodeURIComponent(depthCm || "5")}${selectedRecommendation ? `&material=${encodeURIComponent(selectedRecommendation.id)}` : ""}${deliveryZoneId ? `&zone=${encodeURIComponent(deliveryZoneId)}` : ""}${selectedServiceIds.length ? `&services=${encodeURIComponent(selectedServiceIds.join(","))}` : ""}&profile=${encodeURIComponent(JSON.stringify({ ...profile, customProject }))}`} className="mt-5 inline-flex w-full items-center justify-center rounded-xl bg-emerald-400 px-4 py-3 text-sm font-semibold text-slate-950 hover:bg-emerald-300">Open full quotation <ArrowRight className="ml-2 h-4 w-4" /></Link>
                   </div>
                 </div>
               )}
