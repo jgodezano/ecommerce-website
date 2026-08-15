@@ -93,6 +93,7 @@ export async function POST(req: NextRequest) {
         description: row.description || "",
         image: json(row.images, [])[0] || "",
         unit: row.unit || "unit",
+        packageSize: row.weight || "",
         price: Number(row.price || 0),
         coveragePerUnit: Number(row.coverage_per_unit),
         wastagePercent: Number(row.wastage_percent || 0),

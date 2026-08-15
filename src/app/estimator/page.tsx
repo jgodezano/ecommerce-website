@@ -24,12 +24,12 @@ type ProjectProfile = {
   customProject?: string;
 };
 
-type Recommendation = { id: string; name: string; description: string; image: string; unit: string; price: number; coveragePerUnit: number; wastagePercent: number; systemRole?: string; systemRequired?: boolean; purpose?: string; matchReasons?: string[]; estimate: { recommendedQuantity: number; materialTotal: number; baseQuantity: number } };
+type Recommendation = { id: string; name: string; description: string; image: string; unit: string; packageSize?: string; price: number; coveragePerUnit: number; wastagePercent: number; systemRole?: string; systemRequired?: boolean; purpose?: string; matchReasons?: string[]; estimate: { recommendedQuantity: number; materialTotal: number; baseQuantity: number } };
 type Service = { id: string; name: string; description: string; pricingModel: "flat" | "per_sqm"; price: number; unit: string; total?: number; recommended?: boolean; recommendationReason?: string; selected?: boolean };
 type DeliveryZone = { id: string; name: string; fee: number; min_order_for_free?: number; estimated_days?: string };
 type Question = { key: QuestionKey; title: string; help: string; options: { value: string; label: string; description: string }[]; when?: (profile: ProjectProfile) => boolean };
 type QuestionKey = keyof ProjectProfile;
-type FollowUpAction = "official_review" | "site_visit";
+type FollowUpAction = "official_review" | "site_visit" | "quote_list";
 
 const INITIAL_PROFILE: ProjectProfile = { projectType: "", useCase: "", loadRequirement: "medium", surfaceType: "soil", drainagePriority: "medium", style: "", colorPreference: "any", maintenance: "medium", indoorOutdoor: "outdoor", budget: "standard", constructionStage: "", constructionMethod: "", customProject: "" };
 const STYLE_GUIDANCE: Record<string, string> = {
@@ -68,8 +68,7 @@ export default function EstimatorPage() {
   const [deliveryCity, setDeliveryCity] = useState(""); const [deliveryZoneId, setDeliveryZoneId] = useState(""); const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]); const [timeline, setTimeline] = useState(""); const [notes, setNotes] = useState("");
   const [profile, setProfile] = useState<ProjectProfile>(INITIAL_PROFILE); const [questionnaireOpen, setQuestionnaireOpen] = useState(false); const [editingInputs, setEditingInputs] = useState(true); const [questionIndex, setQuestionIndex] = useState(0);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]); const [services, setServices] = useState<Service[]>([]); const [selectedProductId, setSelectedProductId] = useState(""); const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]); const [estimate, setEstimate] = useState<any>(null);
-  const [loading, setLoading] = useState(false); const [submitting, setSubmitting] = useState(false); const [message, setMessage] = useState(""); const [error, setError] = useState(""); const [handoffPending, setHandoffPending] = useState(false); const [submittedQuoteId, setSubmittedQuoteId] = useState(""); const [submittedQuoteNumber, setSubmittedQuoteNumber] = useState("");
-  const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [loading, setLoading] = useState(false); const [submitting, setSubmitting] = useState(false); const [submittingAction, setSubmittingAction] = useState<FollowUpAction | null>(null); const [message, setMessage] = useState(""); const [error, setError] = useState(""); const [handoffPending, setHandoffPending] = useState(false); const [submittedQuoteId, setSubmittedQuoteId] = useState(""); const [submittedQuoteNumber, setSubmittedQuoteNumber] = useState("");
 
   useEffect(() => {
     fetch("/api/delivery").then((response) => response.json()).then((data) => setDeliveryZones(data.zones || [])).catch(() => {});
@@ -233,13 +232,13 @@ export default function EstimatorPage() {
       router.push(`/login?redirect=${encodeURIComponent(resumePath)}`);
       return;
     }
-    setSubmitting(true); setError("");
+    setSubmitting(true); setSubmittingAction(action); setError("");
     try {
       const response = await fetch("/api/quotes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          items: recommendations.map((item) => ({ productId: item.id, name: item.name, quantity: item.estimate.recommendedQuantity, unit: item.unit, estimatedUnitPrice: item.price, totalPrice: item.estimate.materialTotal, coveragePerUnit: item.coveragePerUnit, systemRole: item.systemRole, purpose: item.purpose })),
+          items: recommendations.map((item) => ({ productId: item.id, name: item.name, quantity: item.estimate.recommendedQuantity, unit: item.unit, packageSize: item.packageSize, estimatedUnitPrice: item.price, totalPrice: item.estimate.materialTotal, coveragePerUnit: item.coveragePerUnit, wastagePercent: item.wastagePercent, systemRole: item.systemRole, purpose: item.purpose })),
           areaSqm: computedArea,
           selectedMaterialId: selectedRecommendation.id,
           services: estimate?.services || [],
@@ -250,7 +249,7 @@ export default function EstimatorPage() {
           discount: currentTotals.discount,
           total: currentTotals.total,
           targetBudget: Number(targetBudget || 0) || null,
-          notes: action === "site_visit" ? `[SITE VISIT REQUESTED] ${notes}`.trim() : notes,
+          notes: action === "site_visit" ? `[SITE VISIT REQUESTED] ${notes}`.trim() : action === "quote_list" ? `[QUOTE LIST] ${notes}`.trim() : notes,
           projectType: profile.projectType === "other" && customProject ? `other: ${customProject}` : profile.projectType,
           deliveryCity,
           timeline: timeline || estimate?.estimatedDuration?.label || "",
@@ -267,25 +266,12 @@ export default function EstimatorPage() {
       if (!response.ok) throw new Error(data.error || "Failed to submit quotation");
       setSubmittedQuoteId(data.quoteId || "");
       setSubmittedQuoteNumber(data.quoteNumber || "");
-      setMessage(action === "site_visit" ? `Site visit request ${data.quoteNumber} submitted. Our team will confirm the visit details.` : `Quotation ${data.quoteNumber} submitted for official review. Our team will review it and contact you.`);
+      setMessage(action === "site_visit" ? `Site visit request ${data.quoteNumber} submitted. Our team will confirm the visit details.` : action === "quote_list" ? `Materials saved to quote list ${data.quoteNumber}. You can track or download it below.` : `Quotation ${data.quoteNumber} submitted for official review. Our team will review it and contact you.`);
     } catch (err: any) {
       setError(err.message || "Failed to submit quotation");
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  const addToQuoteList = async () => {
-    if (!selectedRecommendation) return;
-    setIsAddingToCart(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 800));
-      setMessage(`${selectedRecommendation.name} has been added to your quote list. You can view it in the Quotes section.`);
-      setTimeout(() => setMessage(""), 5000);
-    } catch (err) {
-      setError("Unable to add to quote list.");
-    } finally {
-      setIsAddingToCart(false);
+      setSubmittingAction(null);
     }
   };
 
@@ -409,6 +395,20 @@ export default function EstimatorPage() {
                     ))}
                   </div>
 
+                  <div className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm">
+                    <p className="text-xs font-semibold uppercase tracking-[.15em] text-emerald-700">Material breakdown · what you are buying</p>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">Each line below is a specific inventory item used in the recommended {estimate?.system?.name || "project system"}. Quantities include the configured allowance; the unit price and line total explain the material portion of your estimate.</p>
+                    <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
+                      <table className="w-full min-w-[760px] text-left text-sm">
+                        <thead className="bg-slate-50 text-xs uppercase tracking-[.08em] text-slate-500"><tr><th className="px-4 py-3">Role</th><th className="px-4 py-3">Specific material</th><th className="px-4 py-3">Required quantity</th><th className="px-4 py-3">Pack / coverage</th><th className="px-4 py-3">Unit price</th><th className="px-4 py-3 text-right">Line total</th></tr></thead>
+                        <tbody className="divide-y divide-slate-200">
+                          {recommendations.map((item) => <tr key={`breakdown-${item.id}`} className="align-top"><td className="px-4 py-4"><span className="font-semibold capitalize text-emerald-700">{item.systemRole || "material"}</span>{item.systemRequired && <span className="mt-1 block text-[11px] text-slate-500">Required component</span>}</td><td className="px-4 py-4"><p className="font-semibold text-slate-950">{item.name}</p><p className="mt-1 max-w-xs text-xs leading-5 text-slate-500">{item.description}</p></td><td className="px-4 py-4"><p className="font-bold text-slate-950">{item.estimate.recommendedQuantity} {item.unit}{item.estimate.recommendedQuantity === 1 ? "" : "s"}</p><p className="mt-1 text-xs text-slate-500">Minimum count after allowance</p></td><td className="px-4 py-4 text-xs leading-5 text-slate-600">{item.packageSize && <span className="block font-semibold text-slate-800">{item.packageSize}</span>}{item.coveragePerUnit} m²/{item.unit} · {item.wastagePercent}% allowance</td><td className="px-4 py-4 font-medium text-slate-800">{formatPrice(item.price)} / {item.unit}</td><td className="px-4 py-4 text-right font-bold text-slate-950">{formatPrice(item.estimate.materialTotal)}</td></tr>)}
+                        </tbody>
+                      </table>
+                    </div>
+                    <p className="mt-3 text-xs leading-5 text-slate-500">This is a planning estimate from the available inventory. Merica will confirm final quantities after checking actual site conditions, measurements, stock, and construction method.</p>
+                  </div>
+
                   <div className="rounded-2xl border border-sky-200 bg-sky-50 p-5"><p className="text-xs font-semibold uppercase tracking-[.15em] text-sky-700">Optional style direction</p><p className="mt-2 text-sm leading-6 text-sky-950">{styleGuidance}</p><p className="mt-2 text-xs leading-5 text-sky-800">For repairs and custom work, this is guidance only because the existing site condition and exact finish cannot be verified from the questionnaire.</p></div>
                   {estimate?.estimatedDuration && <div className="rounded-2xl border border-violet-200 bg-violet-50 p-5"><p className="text-xs font-semibold uppercase tracking-[.15em] text-violet-700">Estimated project duration</p><p className="mt-2 text-lg font-semibold text-violet-950">{estimate.estimatedDuration.label}</p><p className="mt-1 text-xs leading-5 text-violet-800">{estimate.estimatedDuration.basis} Final scheduling is subject to site conditions and team confirmation.</p></div>}
                   {estimate?.budgetComparison && <div className={`rounded-2xl border p-5 ${estimate.budgetComparison.status === "over_budget" ? "border-amber-200 bg-amber-50" : "border-emerald-200 bg-emerald-50"}`}><p className={`text-xs font-semibold uppercase tracking-[.15em] ${estimate.budgetComparison.status === "over_budget" ? "text-amber-700" : "text-emerald-700"}`}>Budget check</p><p className={`mt-2 text-sm leading-6 ${estimate.budgetComparison.status === "over_budget" ? "text-amber-950" : "text-emerald-950"}`}>{estimate.budgetComparison.message}</p>{estimate.budgetComparison.status === "over_budget" && <p className="mt-2 text-xs leading-5 text-amber-800">Possible next steps: compare a lower-cost available material, reduce optional services, or request an official review. Technical quantities remain unchanged.</p>}</div>}
@@ -454,12 +454,12 @@ export default function EstimatorPage() {
 
                     <div className="mt-6 flex flex-col gap-3">
                       <div className="grid gap-3 sm:grid-cols-2">
-                        <Button onClick={() => void requestQuotation("official_review")} disabled={submitting} size="lg" className="bg-emerald-400 text-slate-950 hover:bg-emerald-300">{submitting ? "Submitting…" : "Request official review"} <ArrowRight className="ml-2 h-4 w-4" /></Button>
-                        <Button onClick={() => void requestQuotation("site_visit")} disabled={submitting} size="lg" variant="outline" className="border-white/30 bg-white/10 text-white hover:bg-white/20">Request a site visit</Button>
+                        <Button onClick={() => void requestQuotation("official_review")} disabled={submitting} size="lg" className="bg-emerald-400 text-slate-950 hover:bg-emerald-300">{submittingAction === "official_review" ? "Submitting review…" : "Request official review"} <ArrowRight className="ml-2 h-4 w-4" /></Button>
+                        <Button onClick={() => void requestQuotation("site_visit")} disabled={submitting} size="lg" variant="outline" className="border-white/30 bg-white/10 text-white hover:bg-white/20">{submittingAction === "site_visit" ? "Requesting visit…" : "Request a site visit"}</Button>
                       </div>
-                      <Button onClick={addToQuoteList} disabled={isAddingToCart} variant="outline" className="w-full border-emerald-300/30 bg-white/5 text-emerald-300 hover:bg-white/10">
-                        {isAddingToCart ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PackageCheck className="mr-2 h-4 w-4" />}
-                        Add materials to quote list
+                      <Button onClick={() => void requestQuotation("quote_list")} disabled={submitting} variant="outline" className="w-full border-emerald-300/30 bg-white/5 text-emerald-300 hover:bg-white/10">
+                        {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PackageCheck className="mr-2 h-4 w-4" />}
+                        {submittingAction === "quote_list" ? "Saving quotation…" : "Add materials to quote list"}
                       </Button>
                     </div>
 
