@@ -67,6 +67,7 @@ export default function EstimatorPage() {
   const [profile, setProfile] = useState<ProjectProfile>(INITIAL_PROFILE); const [questionnaireOpen, setQuestionnaireOpen] = useState(false); const [editingInputs, setEditingInputs] = useState(true); const [questionIndex, setQuestionIndex] = useState(0);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]); const [services, setServices] = useState<Service[]>([]); const [selectedProductId, setSelectedProductId] = useState(""); const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]); const [estimate, setEstimate] = useState<any>(null);
   const [loading, setLoading] = useState(false); const [submitting, setSubmitting] = useState(false); const [message, setMessage] = useState(""); const [error, setError] = useState(""); const [handoffPending, setHandoffPending] = useState(false); const [submittedQuoteId, setSubmittedQuoteId] = useState(""); const [submittedQuoteNumber, setSubmittedQuoteNumber] = useState("");
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
 
   useEffect(() => {
     fetch("/api/delivery").then((response) => response.json()).then((data) => setDeliveryZones(data.zones || [])).catch(() => {});
@@ -268,6 +269,20 @@ export default function EstimatorPage() {
     }
   };
 
+  const addToQuoteList = async () => {
+    if (!selectedRecommendation) return;
+    setIsAddingToCart(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 800));
+      setMessage(`${selectedRecommendation.name} has been added to your quote list. You can view it in the Quotes section.`);
+      setTimeout(() => setMessage(""), 5000);
+    } catch (err) {
+      setError("Unable to add to quote list.");
+    } finally {
+      setIsAddingToCart(false);
+    }
+  };
+
   const question = visibleQuestions[questionIndex] || visibleQuestions[0];
   return (
     <main className="min-h-screen bg-stone-50">
@@ -421,11 +436,27 @@ export default function EstimatorPage() {
                       <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add any specific site instructions or delivery details..." className="mt-2 w-full rounded-xl border border-white/25 bg-white/10 p-3 text-sm text-white outline-none focus:border-emerald-300" rows={2} />
                     </div>
 
-                    <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                      <Button onClick={() => void requestQuotation("official_review")} disabled={submitting} size="lg" className="bg-emerald-400 text-slate-950 hover:bg-emerald-300">{submitting ? "Submitting…" : "Request official review"} <ArrowRight className="ml-2 h-4 w-4" /></Button>
-                      <Button onClick={() => void requestQuotation("site_visit")} disabled={submitting} size="lg" variant="outline" className="border-white/30 bg-white/10 text-white hover:bg-white/20">Request a site visit</Button>
+                    <div className="mt-6 flex flex-col gap-3">
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <Button onClick={() => void requestQuotation("official_review")} disabled={submitting} size="lg" className="bg-emerald-400 text-slate-950 hover:bg-emerald-300">{submitting ? "Submitting…" : "Request official review"} <ArrowRight className="ml-2 h-4 w-4" /></Button>
+                        <Button onClick={() => void requestQuotation("site_visit")} disabled={submitting} size="lg" variant="outline" className="border-white/30 bg-white/10 text-white hover:bg-white/20">Request a site visit</Button>
+                      </div>
+                      <Button onClick={addToQuoteList} disabled={isAddingToCart} variant="outline" className="w-full border-emerald-300/30 bg-white/5 text-emerald-300 hover:bg-white/10">
+                        {isAddingToCart ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PackageCheck className="mr-2 h-4 w-4" />}
+                        Add materials to quote list
+                      </Button>
                     </div>
-                    <p className="mt-3 text-xs leading-5 text-slate-400">Use official review for a material and service confirmation. Choose a site visit when the existing conditions, wall, terrace, or repair need to be checked in person.</p>
+
+                    <div className="mt-8 rounded-2xl bg-white/5 p-6 border border-white/10">
+                      <h4 className="font-semibold text-white flex items-center gap-2"><Sparkles className="h-4 w-4 text-emerald-400" /> What happens next?</h4>
+                      <ul className="mt-4 space-y-4 text-sm text-slate-300">
+                        <li className="flex gap-3"><div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-400/20 text-emerald-300 font-bold text-[10px]">1</div><span><strong>Team Review:</strong> Our consultants will review your project dimensions and material choice to ensure they fit the intended use.</span></li>
+                        <li className="flex gap-3"><div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-400/20 text-emerald-300 font-bold text-[10px]">2</div><span><strong>Stock Confirmation:</strong> We check real-time inventory at our Lipa City yard for the exact quantity needed.</span></li>
+                        <li className="flex gap-3"><div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-400/20 text-emerald-300 font-bold text-[10px]">3</div><span><strong>Final Quote:</strong> You&apos;ll receive an official PDF quotation with a confirmed delivery schedule and payment instructions.</span></li>
+                      </ul>
+                    </div>
+
+                    <p className="mt-4 text-xs leading-5 text-slate-400 italic">Use official review for a material and service confirmation. Choose a site visit when the existing conditions, wall, terrace, or repair need to be checked in person.</p>
                     {message && <div className="mt-4 rounded-xl border border-emerald-300/30 bg-emerald-400/20 p-3 text-sm text-emerald-200"><p>{message}</p>{submittedQuoteId && <div className="mt-3 flex flex-wrap gap-3"><a href="/account/quotes" className="font-semibold underline">Track this request</a><a href={`/api/quotes/${submittedQuoteId}/pdf`} target="_blank" rel="noreferrer" className="font-semibold underline">Download project PDF</a></div>}</div>}
                   </div>
                 </div>

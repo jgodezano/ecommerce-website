@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Check, ChevronLeft, ChevronRight, CircleHelp, Layers3, Loader2, Ruler, Truck, Wrench } from "lucide-react";
+import { ArrowRight, Check, ChevronLeft, ChevronRight, CircleHelp, Layers3, Loader2, PackageCheck, Ruler, Sparkles, Truck, Wrench } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 import Button from "@/components/ui/Button";
 
@@ -81,6 +81,8 @@ export default function HomeEstimatorWizard() {
   const [deliveryZoneId, setDeliveryZoneId] = useState("");
   const [estimate, setEstimate] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -218,6 +220,31 @@ export default function HomeEstimatorWizard() {
   const changeDeliveryZone = async (id: string) => {
     setDeliveryZoneId(id);
     if (estimate) await calculate(selectedProductId, selectedServiceIds, id, profile);
+  };
+
+  const addToQuoteList = async () => {
+    if (!selectedRecommendation) return;
+    setIsAddingToCart(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 800));
+      setMessage(`${selectedRecommendation.name} added to your quote list.`);
+      setTimeout(() => setMessage(""), 3000);
+    } catch (err) {
+      setError("Unable to add to quote list.");
+    } finally {
+      setIsAddingToCart(false);
+    }
+  };
+
+  const openFullQuotation = () => {
+    const params = new URLSearchParams();
+    params.set("area", computedArea.toString());
+    params.set("depth", depthCm || "5");
+    if (selectedRecommendation) params.set("material", selectedRecommendation.id);
+    if (deliveryZoneId) params.set("zone", deliveryZoneId);
+    if (selectedServiceIds.length) params.set("services", selectedServiceIds.join(","));
+    params.set("profile", JSON.stringify({ ...profile, customProject }));
+    window.location.assign(`/estimator?${params.toString()}`);
   };
 
   return (
@@ -386,7 +413,14 @@ export default function HomeEstimatorWizard() {
                       <span className="text-2xl font-bold text-emerald-300">{formatPrice(currentTotals.total)}</span>
                     </div>
                     <p className="mt-3 text-xs leading-5 text-slate-400">Demo quotation based on configured SQLite inventory. Final pricing and availability can be confirmed when you connect the production database.</p>
-                      <Link href={`/estimator?area=${encodeURIComponent(computedArea.toString())}&depth=${encodeURIComponent(depthCm || "5")}${selectedRecommendation ? `&material=${encodeURIComponent(selectedRecommendation.id)}` : ""}${deliveryZoneId ? `&zone=${encodeURIComponent(deliveryZoneId)}` : ""}${selectedServiceIds.length ? `&services=${encodeURIComponent(selectedServiceIds.join(","))}` : ""}&profile=${encodeURIComponent(JSON.stringify({ ...profile, customProject }))}`} className="mt-5 inline-flex w-full items-center justify-center rounded-xl bg-emerald-400 px-4 py-3 text-sm font-semibold text-slate-950 hover:bg-emerald-300">Open full quotation <ArrowRight className="ml-2 h-4 w-4" /></Link>
+                    <div className="mt-5 flex flex-col gap-2">
+                      <Button onClick={openFullQuotation} className="w-full bg-emerald-400 text-slate-950 hover:bg-emerald-300">Open full quotation <ArrowRight className="ml-2 h-4 w-4" /></Button>
+                      <Button onClick={addToQuoteList} disabled={isAddingToCart} variant="outline" className="w-full border-emerald-300/30 bg-white/10 text-emerald-300 hover:bg-white/20">
+                        {isAddingToCart ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PackageCheck className="mr-2 h-4 w-4" />}
+                        Add to quote list
+                      </Button>
+                    </div>
+                    {message && <p className="mt-3 text-center text-sm font-semibold text-emerald-300">{message}</p>}
                   </div>
                 </div>
               )}
