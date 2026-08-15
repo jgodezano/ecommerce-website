@@ -20,8 +20,8 @@ function seedEstimationDefaults(db: ReturnType<typeof getDb>) {
       id: "washed-gravel-20mm", name: "Washed Gravel 20mm", slug: "washed-gravel-20mm", sku: "LM-WG20",
       description: "Clean, rounded aggregate for garden beds, pathways, terraces, and practical low-maintenance landscaping.",
       image: "/images/home/landscape-rocks.webp", unit: "bag", price: 380, stock: 500, materialType: "Landscape gravel",
-      coverage: 0.5, wastage: 10, tags: ["decorative", "pathway", "low-maintenance", "landscaping", "garden", "planting-bed", "maintenance"], projects: ["landscaping", "garden", "pathway", "terrace"],
-      usage: "medium", finish: "natural", location: "outdoor", drainage: 1, heavyLoad: 0, color: "neutral",
+      coverage: 0.5, wastage: 10, tags: ["surface", "driveway", "pathway", "low-maintenance", "landscaping", "garden", "planting-bed", "maintenance"], projects: ["landscaping", "garden", "pathway", "terrace", "driveway"],
+      usage: "heavy", finish: "natural", location: "outdoor", drainage: 1, heavyLoad: 1, color: "neutral",
     },
     {
       id: "decorative-white-pebbles", name: "Decorative White Pebbles", slug: "decorative-white-pebbles", sku: "LM-DWP01",

@@ -7,6 +7,59 @@ function json(value: any, fallback: any) {
   try { return typeof value === "string" ? JSON.parse(value) : value; } catch { return fallback; }
 }
 
+type SystemKind = "landscape" | "parking" | "terrace" | "wall" | "drainage" | "construction";
+type SystemRole = "base" | "binder" | "masonry" | "surface" | "drainage" | "decorative";
+
+function getProjectSystem(profile?: Partial<ProjectProfile>): { kind: SystemKind; name: string; purpose: string; allowedRoles: SystemRole[] } {
+  const rawProjectType = String(profile?.projectType || "").toLowerCase();
+  const custom = `${rawProjectType.replace(/^other:\s*/, "")} ${String((profile as any)?.customProject || "")}`.toLowerCase();
+  const useCase = String(profile?.useCase || "").toLowerCase();
+  const method = String((profile as any)?.constructionMethod || "").toLowerCase();
+  const text = `${rawProjectType} ${custom} ${useCase} ${method}`;
+
+  if (/parking|driveway|car|vehicle/.test(text)) {
+    return { kind: "parking", name: "Parking / driveway material system", purpose: "A stable vehicle-rated foundation with a practical surface finish. Decorative pebbles and drainage aggregate are excluded unless drainage is the stated need.", allowedRoles: ["base", "binder", "surface"] };
+  }
+  if (/drainage|erosion|runoff|soakaway/.test(text) || profile?.drainagePriority === "high") {
+    return { kind: "drainage", name: "Drainage and erosion-control system", purpose: "An open drainage layer and supporting aggregate system for moving water and protecting exposed soil.", allowedRoles: ["drainage", "base"] };
+  }
+  if (/wall|masonry|retaining|repair|fix/.test(text) || useCase === "repair-fix") {
+    return { kind: "wall", name: "Wall repair / masonry system", purpose: "Masonry units, binder, and sand for repair, blockwork, retaining-wall, and small structural work.", allowedRoles: ["masonry", "binder"] };
+  }
+  if (/terrace|patio/.test(text)) {
+    return { kind: "terrace", name: "Terrace / patio material system", purpose: "A prepared base, binder or leveling layer, and suitable outdoor surface materials for a new terrace or patio.", allowedRoles: ["base", "binder", "surface"] };
+  }
+  if (/construction|foundation|structural|build-new/.test(text)) {
+    return { kind: "construction", name: "General construction-base system", purpose: "A practical base and binder system for a new construction area when the final finish is not yet selected.", allowedRoles: ["base", "binder", "masonry", "surface"] };
+  }
+  return { kind: "landscape", name: "Landscape and decorative surface system", purpose: "Decorative and low-maintenance landscape materials for planting beds, borders, and garden features.", allowedRoles: ["decorative", "surface"] };
+}
+
+function getMaterialRole(material: any): SystemRole {
+  const text = `${material.id} ${material.name} ${material.materialType || ""} ${(material.recommendationTags || []).join(" ")}`.toLowerCase();
+  if (/drainage|erosion/.test(text)) return "drainage";
+  if (/cement|binder|mortar|sand/.test(text)) return "binder";
+  if (/base course|base-course|foundation|walkway-base|compacted-base/.test(text)) return "base";
+  if (/hollow block|masonry block|block|masonry/.test(text)) return "masonry";
+  if (/surface|driveway|parking|heavy-load/.test(text)) return "surface";
+  if (/decorative|pebble|landscape|planting-bed|garden/.test(text)) return "decorative";
+  return "surface";
+}
+
+function isSystemCompatible(product: any, system: ReturnType<typeof getProjectSystem>, profile?: Partial<ProjectProfile>): boolean {
+  const role = product.systemRole as SystemRole;
+  const tags = (product.recommendationTags || []).map((tag: string) => tag.toLowerCase());
+  const drainageRequested = profile?.drainagePriority === "high" || system.kind === "drainage";
+  if (!system.allowedRoles.includes(role)) return false;
+  if (system.kind === "parking") {
+    if (role === "decorative" || role === "drainage") return false;
+    if (role === "surface" && !tags.some((tag: string) => ["heavy-load", "driveway", "construction", "structural", "pathway"].some((wanted) => tag.includes(wanted)))) return false;
+  }
+  if (system.kind === "landscape" && (role === "base" || role === "binder" || role === "masonry" || role === "drainage")) return false;
+  if (!drainageRequested && role === "drainage") return false;
+  return true;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -32,8 +85,9 @@ export async function POST(req: NextRequest) {
     }
     query += " ORDER BY p.best_seller DESC, p.name ASC";
 
+    const system = getProjectSystem(projectProfile);
     const products = (db.prepare(query).all(...params) as any[]).map((row) => {
-      const material = {
+      const material: any = {
         id: row.id,
         name: row.name,
         description: row.description || "",
@@ -53,22 +107,22 @@ export async function POST(req: NextRequest) {
         heavyLoadSuitable: !!row.heavy_load_suitable,
         colorFamily: row.color_family || "",
         stock: Number(row.stock || 0),
+        materialType: row.material_type || "",
       };
+      material.systemRole = getMaterialRole(material);
       const estimate = estimateMaterialForArea(areaSqm, material);
       if (!estimate) return null;
       const match = scoreMaterialMatch(material, projectProfile);
-      return { ...material, matchScore: match.score, matchReasons: match.reasons, estimate };
+      const systemCompatible = isSystemCompatible(material, system, projectProfile);
+      return { ...material, matchScore: match.score, matchReasons: match.reasons, systemRole: material.systemRole, systemCompatible, estimate };
     }).filter(Boolean).sort((a: any, b: any) => {
-      if (projectProfile) return (b.matchScore || 0) - (a.matchScore || 0) || b.estimate.materialTotal - a.estimate.materialTotal;
+      if (projectProfile) return Number(b.systemCompatible) - Number(a.systemCompatible) || (b.matchScore || 0) - (a.matchScore || 0) || b.estimate.materialTotal - a.estimate.materialTotal;
       return Number(b.bestSeller || 0) - Number(a.bestSeller || 0) || a.name.localeCompare(b.name);
     });
 
-    const projectTypeForShortlist = String(projectProfile?.projectType || "").toLowerCase();
-    const minimumMatchScore = ["landscaping", "garden", "terrace", "wall", "construction", "drainage", "driveway", "pathway"].some((value) => projectTypeForShortlist.includes(value)) ? 8 : 6;
-    const recommendedProducts = projectProfile
-      ? products.filter((product: any) => Number(product.matchScore || 0) >= minimumMatchScore).slice(0, 4)
-      : products.slice(0, 6);
-    const shortlist = recommendedProducts.length ? recommendedProducts : products.slice(0, 3);
+    const systemProducts = projectProfile ? products.filter((product: any) => product.systemCompatible) : products;
+    const fallbackProducts = projectProfile && system.kind === "landscape" ? products.filter((product: any) => product.systemRole === "decorative" || product.systemRole === "surface") : products;
+    const shortlist = (systemProducts.length ? systemProducts : fallbackProducts).slice(0, system.kind === "wall" ? 4 : 5);
 
     const serviceIds = Array.isArray(body.serviceIds) ? body.serviceIds.map(String) : [];
     const selectedServiceSet = new Set(serviceIds);
@@ -97,7 +151,7 @@ export async function POST(req: NextRequest) {
         reason = "Matches wall repair, masonry, retaining, and small structural work.";
       }
       if (id === "demo-terrace-construction" || name.includes("terrace") || name.includes("patio")) {
-        score = projectType.includes("terrace") || projectType.includes("patio") || customProject.includes("terrace") || customProject.includes("patio") || constructionMethod === "surface" ? 16 : 0;
+        score = projectType.includes("terrace") || projectType.includes("patio") || customProject.includes("terrace") || customProject.includes("patio") ? 16 : 0;
         reason = "Matches a new terrace, patio, or finished outdoor platform.";
       }
       if (id === "demo-installation" || name.includes("placement")) {
@@ -118,7 +172,8 @@ export async function POST(req: NextRequest) {
 
     const selected = shortlist.find((item: any) => item.id === body.selectedProductId) || shortlist[0] || null;
     const zone = body.deliveryZoneId ? db.prepare("SELECT * FROM delivery_zones WHERE id = ?").get(String(body.deliveryZoneId)) as any : null;
-    const preliminaryMaterialTotal = selected?.estimate.materialTotal || 0;
+    const systemMaterialTotal = shortlist.reduce((sum: number, item: any) => sum + Number(item.estimate.materialTotal || 0), 0);
+    const preliminaryMaterialTotal = systemMaterialTotal || selected?.estimate.materialTotal || 0;
     const configuredDeliveryFee = zone ? (zone.min_order_for_free && preliminaryMaterialTotal >= Number(zone.min_order_for_free) ? 0 : Number(zone.fee || 0)) : Number(body.deliveryFee || 0);
     const totals = calculateQuoteTotals({
       materialTotal: preliminaryMaterialTotal,
@@ -128,7 +183,13 @@ export async function POST(req: NextRequest) {
       discount: Number(body.discount || 0),
     });
 
-    return NextResponse.json({ areaSqm, recommendations: shortlist, services, recommendedServiceIds, selectedServiceIds: serviceIds, selectedProductId: selected?.id || null, deliveryZone: zone ? { id: zone.id, name: zone.name, fee: Number(zone.fee || 0), minOrderForFree: Number(zone.min_order_for_free || 0), estimatedDays: zone.estimated_days || "" } : null, totals });
+    const recommendations = shortlist.map((item: any, index: number) => ({
+      ...item,
+      systemRole: item.systemRole,
+      systemRequired: system.kind !== "landscape" && ["base", "binder", "masonry", "surface"].includes(item.systemRole),
+      purpose: item.systemRole === "base" ? "Foundation layer: spreads vehicle or structural load and reduces settlement." : item.systemRole === "binder" ? "Binder or leveling material: helps bind, level, or prepare the construction layer." : item.systemRole === "masonry" ? "Masonry unit: forms the wall, partition, retaining, or structural element." : item.systemRole === "drainage" ? "Drainage layer: provides a path for water and helps control runoff." : item.systemRole === "decorative" ? "Visible finish: provides the color, texture, and garden appearance." : "Surface aggregate: provides the visible or compacted outdoor finish.",
+    }));
+    return NextResponse.json({ areaSqm, system: { kind: system.kind, name: system.name, purpose: system.purpose }, recommendations, services, recommendedServiceIds, selectedServiceIds: serviceIds, selectedProductId: selected?.id || null, deliveryZone: zone ? { id: zone.id, name: zone.name, fee: Number(zone.fee || 0), minOrderForFree: Number(zone.min_order_for_free || 0), estimatedDays: zone.estimated_days || "" } : null, totals });
   } catch (error) {
     console.error("Estimate error:", error);
     return NextResponse.json({ error: "Unable to calculate estimate" }, { status: 500 });

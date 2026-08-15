@@ -29,6 +29,9 @@ type Recommendation = {
   price: number;
   coveragePerUnit: number;
   wastagePercent: number;
+  systemRole?: string;
+  systemRequired?: boolean;
+  purpose?: string;
   matchReasons?: string[];
   estimate: { recommendedQuantity: number; materialTotal: number; baseQuantity: number };
 };
@@ -276,11 +279,11 @@ export default function HomeEstimatorWizard() {
               {editingInputs && !questionnaireOpen && (
                 <>
                   <div className="mt-8 grid gap-4 sm:grid-cols-3">
-                    <label className="text-sm font-medium text-slate-200">Length (m)<input type="number" min="0" step="0.1" value={length} onChange={(event) => setLength(event.target.value)} placeholder="e.g. 10" className="mt-2 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-3 text-white outline-none placeholder:text-slate-500 focus:border-emerald-300" /></label>
-                    <label className="text-sm font-medium text-slate-200">Width (m)<input type="number" min="0" step="0.1" value={width} onChange={(event) => setWidth(event.target.value)} placeholder="e.g. 5" className="mt-2 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-3 text-white outline-none placeholder:text-slate-500 focus:border-emerald-300" /></label>
-                    <label className="text-sm font-medium text-slate-200" title="Application depth or thickness (height)">Depth / Height (cm)<input type="number" min="1" max="100" value={depthCm} onChange={(event) => setDepthCm(event.target.value)} placeholder="e.g. 5" className="mt-2 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-3 text-white outline-none placeholder:text-slate-500 focus:border-emerald-300" /></label>
+                    <label className="text-sm font-medium text-slate-200">Length (m)<input type="number" min="0" step="0.1" value={length} onChange={(event) => setLength(event.target.value)} onInput={(event) => setLength(event.currentTarget.value)} placeholder="e.g. 10" className="mt-2 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-3 text-white outline-none placeholder:text-slate-500 focus:border-emerald-300" /></label>
+                    <label className="text-sm font-medium text-slate-200">Width (m)<input type="number" min="0" step="0.1" value={width} onChange={(event) => setWidth(event.target.value)} onInput={(event) => setWidth(event.currentTarget.value)} placeholder="e.g. 5" className="mt-2 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-3 text-white outline-none placeholder:text-slate-500 focus:border-emerald-300" /></label>
+                    <label className="text-sm font-medium text-slate-200" title="Application depth or thickness (height)">Depth / Height (cm)<input type="number" min="1" max="100" value={depthCm} onChange={(event) => setDepthCm(event.target.value)} onInput={(event) => setDepthCm(event.currentTarget.value)} placeholder="e.g. 5" className="mt-2 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-3 text-white outline-none placeholder:text-slate-500 focus:border-emerald-300" /></label>
                   </div>
-                  <div className="mt-4"><label className="text-sm font-medium text-slate-200">Or enter total area (m²)<input type="number" min="0" step="0.1" value={area} onChange={(event) => setArea(event.target.value)} placeholder="Direct area input" className="mt-2 w-full rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-emerald-300" /></label><p className="mt-2 text-xs text-slate-400">Effective calculation area (factoring depth): <strong className="text-emerald-300">{computedArea ? `${computedArea.toFixed(2)} m²` : "—"}</strong></p></div>
+                  <div className="mt-4"><label className="text-sm font-medium text-slate-200">Or enter total area (m²)<input type="number" min="0" step="0.1" value={area} onChange={(event) => setArea(event.target.value)} onInput={(event) => setArea(event.currentTarget.value)} placeholder="Direct area input" className="mt-2 w-full rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-emerald-300" /></label><p className="mt-2 text-xs text-slate-400">Effective calculation area (factoring depth): <strong className="text-emerald-300">{computedArea ? `${computedArea.toFixed(2)} m²` : "—"}</strong></p></div>
                   <Button onClick={startQuestionnaire} disabled={loading} size="lg" className="mt-7 w-full bg-emerald-400 text-slate-950 hover:bg-emerald-300">Calculate requirements <ArrowRight className="ml-2 h-4 w-4" /></Button>
                 </>
               )}
@@ -354,16 +357,17 @@ export default function HomeEstimatorWizard() {
                 <div className="mt-8 flex items-center justify-center rounded-2xl border border-slate-200 bg-stone-50 p-10 text-slate-600"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Updating your quotation…</div>
               ) : (
                 <div className="mt-7 space-y-4">
+                  {estimate.system && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><p className="text-xs font-semibold uppercase tracking-[.15em] text-emerald-700">Recommended material system</p><h4 className="mt-2 text-lg font-semibold text-slate-950">{estimate.system.name}</h4><p className="mt-2 text-sm leading-6 text-emerald-950">{estimate.system.purpose}</p><p className="mt-3 text-xs font-semibold uppercase tracking-[.12em] text-emerald-700">The quote below shows the roles, quantities, and estimated cost of each component.</p></div>}
                   <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
                     <p className="text-xs font-semibold uppercase tracking-[.15em] text-emerald-700">Recommended materials from inventory</p>
                     <div className="mt-4 grid gap-3">
                       {recommendations.length ? recommendations.map((item) => (
                         <button type="button" key={item.id} onClick={() => void chooseMaterial(item.id)} className={`rounded-xl border p-4 text-left transition ${selectedRecommendation?.id === item.id ? "border-emerald-500 bg-white shadow-sm" : "border-emerald-100 bg-white/60 hover:border-emerald-300"}`}>
                           <div className="flex items-start justify-between gap-4">
-                            <div>
-                              <p className="font-semibold text-slate-950">{item.name}</p>
-                              <div className="mt-2 flex items-baseline gap-2"><span className="text-2xl font-bold text-emerald-800">{item.estimate.recommendedQuantity}</span><span className="text-sm font-semibold text-emerald-800">{item.unit} estimated</span></div>
-                              <p className="mt-1 text-xs text-slate-600">Based on {item.coveragePerUnit} m²/{item.unit} coverage and {item.wastagePercent}% allowance</p>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-start gap-3"><div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-slate-100">{item.image ? <img src={item.image} alt={item.name} className="h-full w-full object-cover" /> : <Layers3 className="m-3 h-8 w-8 text-slate-400" />}</div><div><p className="font-semibold text-slate-950">{item.name}</p><p className="mt-1 text-[11px] font-bold uppercase tracking-[.12em] text-emerald-700">{item.systemRole || "project material"}{item.systemRequired ? " · required component" : ""}</p></div></div>
+                              <div className="mt-3 flex items-baseline gap-2"><span className="text-2xl font-bold text-emerald-800">{item.estimate.recommendedQuantity}</span><span className="text-sm font-semibold text-emerald-800">{item.unit} estimated</span></div>
+                              <p className="mt-1 text-xs text-slate-600">{item.purpose || `Based on ${item.coveragePerUnit} m²/${item.unit} coverage and ${item.wastagePercent}% allowance`}</p>
                               {item.matchReasons?.length ? <p className="mt-2 text-xs leading-5 text-emerald-800">{item.matchReasons.join(" · ")}</p> : null}
                             </div>
                             <p className="whitespace-nowrap text-sm font-bold text-emerald-800">{formatPrice(item.estimate.materialTotal)}</p>
