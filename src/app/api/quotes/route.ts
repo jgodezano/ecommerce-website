@@ -47,10 +47,10 @@ export async function POST(req: NextRequest) {
         id, quote_number, customer_id, status, workflow_status, items, notes, project_details, admin_notes, total,
         area_sqm, selected_material_id, material_total, delivery_fee, service_total, other_charges, discount, services,
         customer_name, customer_email, customer_phone, project_location, timeline, estimate_disclaimer
-      ) VALUES (?, ?, ?, 'pending', 'pending_review', ?, ?, ?, '', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      quoteId, quoteNumber, session.user.id,
-      JSON.stringify(items), body.notes || "", JSON.stringify({ projectType: body.projectType || "", deliveryCity: body.deliveryCity || "", timeline: body.timeline || "", ...(body.projectDetails || {}) }), total,
+      quoteId, quoteNumber, session.user.id, "pending", "pending_review",
+      JSON.stringify(items), body.notes || "", JSON.stringify({ projectType: body.projectType || "", deliveryCity: body.deliveryCity || "", timeline: body.timeline || "", ...(body.projectDetails || {}) }), "", total,
       areaSqm, body.selectedMaterialId || null, materialTotal, deliveryFee, serviceTotal, otherCharges, discount, JSON.stringify(body.services || []),
       body.customerName || [session.user.first_name, session.user.last_name].filter(Boolean).join(" "), body.customerEmail || session.user.email, body.customerPhone || session.user.phone || "", body.projectLocation || body.deliveryCity || "", body.timeline || "", body.estimateDisclaimer || "",
     );
