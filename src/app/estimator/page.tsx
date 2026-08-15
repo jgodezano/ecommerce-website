@@ -18,6 +18,7 @@ type ProjectProfile = {
   maintenance: "low" | "medium" | "high";
   indoorOutdoor: "indoor" | "outdoor" | "both";
   budget: "economy" | "standard" | "premium";
+  budgetTarget?: number;
   constructionStage: string;
   constructionMethod: string;
   customProject?: string;
@@ -62,6 +63,7 @@ export default function EstimatorPage() {
   const { user, isAuthenticated } = useCustomerAuth();
   const [length, setLength] = useState(""); const [width, setWidth] = useState(""); const [area, setArea] = useState("");
   const [depthCm, setDepthCm] = useState("5");
+  const [targetBudget, setTargetBudget] = useState("");
   const [customProject, setCustomProject] = useState("");
   const [deliveryCity, setDeliveryCity] = useState(""); const [deliveryZoneId, setDeliveryZoneId] = useState(""); const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]); const [timeline, setTimeline] = useState(""); const [notes, setNotes] = useState("");
   const [profile, setProfile] = useState<ProjectProfile>(INITIAL_PROFILE); const [questionnaireOpen, setQuestionnaireOpen] = useState(false); const [editingInputs, setEditingInputs] = useState(true); const [questionIndex, setQuestionIndex] = useState(0);
@@ -74,6 +76,7 @@ export default function EstimatorPage() {
     const query = new URLSearchParams(window.location.search);
     if (query.get("area")) setArea(query.get("area") || "");
     if (query.get("depth")) setDepthCm(query.get("depth") || "5");
+    if (query.get("targetBudget")) setTargetBudget(query.get("targetBudget") || "");
     if (query.get("material")) setSelectedProductId(query.get("material") || "");
     if (query.get("zone")) setDeliveryZoneId(query.get("zone") || "");
     if (query.get("services")) setSelectedServiceIds((query.get("services") || "").split(",").filter(Boolean));
@@ -97,6 +100,7 @@ export default function EstimatorPage() {
         if (pending?.deliveryZoneId) setDeliveryZoneId(String(pending.deliveryZoneId));
         if (pending?.timeline) setTimeline(String(pending.timeline));
         if (pending?.notes) setNotes(String(pending.notes));
+        if (pending?.targetBudget) setTargetBudget(String(pending.targetBudget));
         setEditingInputs(false);
         setQuestionnaireOpen(false);
         setHandoffPending(true);
@@ -144,7 +148,8 @@ export default function EstimatorPage() {
           serviceIds: nextServiceIds,
           selectedProductId: nextProductId,
           deliveryZoneId,
-          projectProfile: { ...nextProfile, projectType: nextProfile.projectType === "other" && customProject ? `other: ${customProject}` : nextProfile.projectType }
+          targetBudget: Number(targetBudget || 0),
+          projectProfile: { ...nextProfile, budgetTarget: Number(targetBudget || 0) || undefined, projectType: nextProfile.projectType === "other" && customProject ? `other: ${customProject}` : nextProfile.projectType }
         }),
       });
       const data = await response.json();
@@ -223,8 +228,8 @@ export default function EstimatorPage() {
   const requestQuotation = async (action: FollowUpAction = "official_review") => {
     if (!selectedRecommendation || !computedArea) { setError("Complete the project questions and select a material first."); return; }
     if (!isAuthenticated) {
-      const resumePath = `/estimator?area=${encodeURIComponent(computedArea.toString())}&depth=${encodeURIComponent(depthCm || "5")}${selectedRecommendation ? `&material=${encodeURIComponent(selectedRecommendation.id)}` : ""}${deliveryZoneId ? `&zone=${encodeURIComponent(deliveryZoneId)}` : ""}${selectedServiceIds.length ? `&services=${encodeURIComponent(selectedServiceIds.join(","))}` : ""}&profile=${encodeURIComponent(JSON.stringify({ ...profile, customProject }))}`;
-      sessionStorage.setItem("pendingEstimate", JSON.stringify({ areaSqm: computedArea, depthCm, selectedProductId, selectedServiceIds, projectProfile: profile, deliveryCity, deliveryZoneId, timeline, notes, followUpAction: action }));
+      const resumePath = `/estimator?area=${encodeURIComponent(computedArea.toString())}&depth=${encodeURIComponent(depthCm || "5")}${selectedRecommendation ? `&material=${encodeURIComponent(selectedRecommendation.id)}` : ""}${deliveryZoneId ? `&zone=${encodeURIComponent(deliveryZoneId)}` : ""}${targetBudget ? `&targetBudget=${encodeURIComponent(targetBudget)}` : ""}${selectedServiceIds.length ? `&services=${encodeURIComponent(selectedServiceIds.join(","))}` : ""}&profile=${encodeURIComponent(JSON.stringify({ ...profile, customProject }))}`;
+      sessionStorage.setItem("pendingEstimate", JSON.stringify({ areaSqm: computedArea, depthCm, targetBudget: Number(targetBudget || 0) || null, selectedProductId, selectedServiceIds, projectProfile: { ...profile, budgetTarget: Number(targetBudget || 0) || undefined }, deliveryCity, deliveryZoneId, timeline, notes, followUpAction: action }));
       router.push(`/login?redirect=${encodeURIComponent(resumePath)}`);
       return;
     }
@@ -244,13 +249,14 @@ export default function EstimatorPage() {
           otherCharges: currentTotals.otherCharges,
           discount: currentTotals.discount,
           total: currentTotals.total,
+          targetBudget: Number(targetBudget || 0) || null,
           notes: action === "site_visit" ? `[SITE VISIT REQUESTED] ${notes}`.trim() : notes,
           projectType: profile.projectType === "other" && customProject ? `other: ${customProject}` : profile.projectType,
           deliveryCity,
-          timeline,
+          timeline: timeline || estimate?.estimatedDuration?.label || "",
           projectLocation: deliveryCity,
           deliveryZoneId,
-          projectDetails: { projectProfile: profile, depthCm, useCase: profile.useCase, loadRequirement: profile.loadRequirement, surfaceType: profile.surfaceType, drainagePriority: profile.drainagePriority, style: profile.style, colorPreference: profile.colorPreference, maintenance: profile.maintenance, indoorOutdoor: profile.indoorOutdoor, budget: profile.budget, followUpAction: action },
+          projectDetails: { projectProfile: { ...profile, budgetTarget: Number(targetBudget || 0) || undefined }, depthCm, useCase: profile.useCase, loadRequirement: profile.loadRequirement, surfaceType: profile.surfaceType, drainagePriority: profile.drainagePriority, style: profile.style, colorPreference: profile.colorPreference, maintenance: profile.maintenance, indoorOutdoor: profile.indoorOutdoor, budget: profile.budget, budgetTarget: Number(targetBudget || 0) || null, estimatedDuration: estimate?.estimatedDuration || null, followUpAction: action },
           customerName: [user?.firstName, user?.lastName].filter(Boolean).join(" "),
           customerEmail: user?.email || "",
           customerPhone: user?.phone || "",
@@ -316,7 +322,7 @@ export default function EstimatorPage() {
               ) : estimate && !questionnaireOpen && !editingInputs ? (
                 <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
                   <div className="flex items-center justify-between gap-3"><p className="text-xs font-semibold uppercase tracking-[.15em] text-emerald-700">Project summary</p><button type="button" onClick={() => { setEstimate(null); setRecommendations([]); setEditingInputs(true); }} className="text-xs font-semibold text-emerald-700 hover:text-emerald-900">Edit details</button></div>
-                  <dl className="mt-4 space-y-3 text-sm"><div className="flex justify-between gap-4"><dt className="text-slate-500">Project</dt><dd className="text-right font-semibold text-slate-950">{profile.projectType === "other" && customProject ? customProject : projectTypeLabel}</dd></div><div className="flex justify-between gap-4"><dt className="text-slate-500">Main need</dt><dd className="text-right font-semibold text-slate-950">{useCaseLabel || "Not specified"}</dd></div>{constructionStageLabel && <div className="flex justify-between gap-4"><dt className="text-slate-500">Stage</dt><dd className="text-right font-semibold text-slate-950">{constructionStageLabel}</dd></div>}{constructionMethodLabel && <div className="flex justify-between gap-4"><dt className="text-slate-500">Construction focus</dt><dd className="text-right font-semibold text-slate-950">{constructionMethodLabel}</dd></div>}<div className="flex justify-between gap-4"><dt className="text-slate-500">Effective area</dt><dd className="text-right font-semibold text-slate-950">{computedArea.toFixed(2)} m² · {depthCm || 5} cm</dd></div></dl>
+                  <dl className="mt-4 space-y-3 text-sm"><div className="flex justify-between gap-4"><dt className="text-slate-500">Project</dt><dd className="text-right font-semibold text-slate-950">{profile.projectType === "other" && customProject ? customProject : projectTypeLabel}</dd></div><div className="flex justify-between gap-4"><dt className="text-slate-500">Main need</dt><dd className="text-right font-semibold text-slate-950">{useCaseLabel || "Not specified"}</dd></div>{constructionStageLabel && <div className="flex justify-between gap-4"><dt className="text-slate-500">Stage</dt><dd className="text-right font-semibold text-slate-950">{constructionStageLabel}</dd></div>}{constructionMethodLabel && <div className="flex justify-between gap-4"><dt className="text-slate-500">Construction focus</dt><dd className="text-right font-semibold text-slate-950">{constructionMethodLabel}</dd></div>}<div className="flex justify-between gap-4"><dt className="text-slate-500">Effective area</dt><dd className="text-right font-semibold text-slate-950">{computedArea.toFixed(2)} m² · {depthCm || 5} cm</dd></div>{targetBudget && <div className="flex justify-between gap-4"><dt className="text-slate-500">Target budget</dt><dd className="text-right font-semibold text-slate-950">{formatPrice(Number(targetBudget))}</dd></div>}{estimate?.estimatedDuration?.label && <div className="flex justify-between gap-4"><dt className="text-slate-500">Estimated duration</dt><dd className="text-right font-semibold text-slate-950">{estimate.estimatedDuration.label}</dd></div>}</dl>
                 </div>
               ) : editingInputs && !questionnaireOpen ? (
                 <>
@@ -355,6 +361,13 @@ export default function EstimatorPage() {
                   <div className="mt-4">
                     <label className="block text-xs font-medium text-emerald-200">Please specify what you are building:</label>
                     <input type="text" value={customProject} onChange={(e) => setCustomProject(e.target.value)} placeholder="e.g. Fixing garden wall" className="mt-2 w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-white outline-none focus:border-emerald-300" />
+                  </div>
+                )}
+                {question.key === "budget" && (
+                  <div className="mt-4 rounded-xl border border-emerald-300/20 bg-emerald-300/10 p-4">
+                    <label className="block text-xs font-medium text-emerald-100">Optional target budget (₱)</label>
+                    <input type="number" min="0" step="1000" value={targetBudget} onChange={(e) => setTargetBudget(e.target.value)} onInput={(e) => setTargetBudget(e.currentTarget.value)} placeholder="e.g. 50000" className="mt-2 w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 focus:border-emerald-300" />
+                    <p className="mt-2 text-xs leading-5 text-emerald-100/80">The final quantity will remain technically based on the project. We will only compare the estimate with this budget.</p>
                   </div>
                 )}
 
@@ -397,6 +410,8 @@ export default function EstimatorPage() {
                   </div>
 
                   <div className="rounded-2xl border border-sky-200 bg-sky-50 p-5"><p className="text-xs font-semibold uppercase tracking-[.15em] text-sky-700">Optional style direction</p><p className="mt-2 text-sm leading-6 text-sky-950">{styleGuidance}</p><p className="mt-2 text-xs leading-5 text-sky-800">For repairs and custom work, this is guidance only because the existing site condition and exact finish cannot be verified from the questionnaire.</p></div>
+                  {estimate?.estimatedDuration && <div className="rounded-2xl border border-violet-200 bg-violet-50 p-5"><p className="text-xs font-semibold uppercase tracking-[.15em] text-violet-700">Estimated project duration</p><p className="mt-2 text-lg font-semibold text-violet-950">{estimate.estimatedDuration.label}</p><p className="mt-1 text-xs leading-5 text-violet-800">{estimate.estimatedDuration.basis} Final scheduling is subject to site conditions and team confirmation.</p></div>}
+                  {estimate?.budgetComparison && <div className={`rounded-2xl border p-5 ${estimate.budgetComparison.status === "over_budget" ? "border-amber-200 bg-amber-50" : "border-emerald-200 bg-emerald-50"}`}><p className={`text-xs font-semibold uppercase tracking-[.15em] ${estimate.budgetComparison.status === "over_budget" ? "text-amber-700" : "text-emerald-700"}`}>Budget check</p><p className={`mt-2 text-sm leading-6 ${estimate.budgetComparison.status === "over_budget" ? "text-amber-950" : "text-emerald-950"}`}>{estimate.budgetComparison.message}</p>{estimate.budgetComparison.status === "over_budget" && <p className="mt-2 text-xs leading-5 text-amber-800">Possible next steps: compare a lower-cost available material, reduce optional services, or request an official review. Technical quantities remain unchanged.</p>}</div>}
 
                   <div className="rounded-2xl border border-slate-200 p-5">
                     <label className="block text-sm font-semibold text-slate-800">Select delivery zone</label>

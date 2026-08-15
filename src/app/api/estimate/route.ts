@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { calculateQuoteTotals, calculateServiceCost, estimateMaterialForArea, scoreMaterialMatch, type ProjectProfile } from "@/lib/estimator";
+import { calculateQuoteTotals, calculateServiceCost, estimateMaterialForArea, scoreMaterialMatch, compareEstimateToBudget, estimateProjectDuration, type ProjectProfile } from "@/lib/estimator";
 
 function json(value: any, fallback: any) {
   if (!value) return fallback;
@@ -125,6 +125,7 @@ export async function POST(req: NextRequest) {
     const shortlist = (systemProducts.length ? systemProducts : fallbackProducts).slice(0, system.kind === "wall" ? 4 : 5);
 
     const serviceIds = Array.isArray(body.serviceIds) ? body.serviceIds.map(String) : [];
+    const targetBudget = Number(body.targetBudget || (projectProfile as any)?.budgetTarget || 0);
     const selectedServiceSet = new Set(serviceIds);
     const rawProjectType = String(projectProfile?.projectType || "").toLowerCase();
     const customProject = `${rawProjectType.replace(/^other:\s*/, "")} ${String((projectProfile as any)?.customProject || "")}`.toLowerCase();
@@ -182,6 +183,8 @@ export async function POST(req: NextRequest) {
       otherCharges: Number(body.otherCharges || 0),
       discount: Number(body.discount || 0),
     });
+    const budgetComparison = compareEstimateToBudget(totals.total, targetBudget);
+    const estimatedDuration = estimateProjectDuration(areaSqm, projectProfile, serviceIds);
 
     const recommendations = shortlist.map((item: any, index: number) => ({
       ...item,
@@ -189,7 +192,7 @@ export async function POST(req: NextRequest) {
       systemRequired: system.kind !== "landscape" && ["base", "binder", "masonry", "surface"].includes(item.systemRole),
       purpose: item.systemRole === "base" ? "Foundation layer: spreads vehicle or structural load and reduces settlement." : item.systemRole === "binder" ? "Binder or leveling material: helps bind, level, or prepare the construction layer." : item.systemRole === "masonry" ? "Masonry unit: forms the wall, partition, retaining, or structural element." : item.systemRole === "drainage" ? "Drainage layer: provides a path for water and helps control runoff." : item.systemRole === "decorative" ? "Visible finish: provides the color, texture, and garden appearance." : "Surface aggregate: provides the visible or compacted outdoor finish.",
     }));
-    return NextResponse.json({ areaSqm, system: { kind: system.kind, name: system.name, purpose: system.purpose }, recommendations, services, recommendedServiceIds, selectedServiceIds: serviceIds, selectedProductId: selected?.id || null, deliveryZone: zone ? { id: zone.id, name: zone.name, fee: Number(zone.fee || 0), minOrderForFree: Number(zone.min_order_for_free || 0), estimatedDays: zone.estimated_days || "" } : null, totals });
+    return NextResponse.json({ areaSqm, system: { kind: system.kind, name: system.name, purpose: system.purpose }, recommendations, services, recommendedServiceIds, selectedServiceIds: serviceIds, selectedProductId: selected?.id || null, deliveryZone: zone ? { id: zone.id, name: zone.name, fee: Number(zone.fee || 0), minOrderForFree: Number(zone.min_order_for_free || 0), estimatedDays: zone.estimated_days || "" } : null, totals, budgetComparison, estimatedDuration });
   } catch (error) {
     console.error("Estimate error:", error);
     return NextResponse.json({ error: "Unable to calculate estimate" }, { status: 500 });

@@ -55,6 +55,7 @@ export interface ProjectProfile {
   maintenance: "low" | "medium" | "high";
   indoorOutdoor: "indoor" | "outdoor" | "both";
   budget: "economy" | "standard" | "premium";
+  budgetTarget?: number;
 }
 
 export interface MaterialMatch {
@@ -175,6 +176,59 @@ export function estimateMaterialForArea(areaSqm: number, material: ConfigurableM
 export function calculateServiceCost(service: ConfigurableService, areaSqm: number): number {
   const multiplier = service.pricingModel === "per_sqm" ? areaSqm : 1;
   return Math.max(0, Number(service.price || 0)) * multiplier;
+}
+
+export type BudgetComparison = {
+  status: "not_set" | "within_budget" | "over_budget";
+  targetBudget: number | null;
+  estimateTotal: number;
+  difference: number;
+  message: string;
+};
+
+export function compareEstimateToBudget(total: number, targetBudget?: number | null): BudgetComparison {
+  const estimateTotal = Math.max(0, Number(total || 0));
+  const target = Number(targetBudget || 0);
+  if (!Number.isFinite(target) || target <= 0) {
+    return { status: "not_set", targetBudget: null, estimateTotal, difference: 0, message: "No target budget was provided. The estimate is based on the selected materials, services, and delivery assumptions." };
+  }
+  const difference = estimateTotal - target;
+  if (difference <= 0) {
+    return { status: "within_budget", targetBudget: target, estimateTotal, difference: Math.abs(difference), message: `This estimate is approximately ${formatCurrency(estimateTotal)} and is within your ${formatCurrency(target)} target budget.` };
+  }
+  return { status: "over_budget", targetBudget: target, estimateTotal, difference, message: `This estimate is approximately ${formatCurrency(estimateTotal)}, which is ${formatCurrency(difference)} above your ${formatCurrency(target)} target budget. Required quantities were not reduced to force a lower total.` };
+}
+
+function formatCurrency(value: number): string {
+  return `₱${Math.round(value).toLocaleString("en-PH")}`;
+}
+
+export type ProjectDurationEstimate = {
+  label: string;
+  basis: string;
+  confidence: "standard" | "site_review_required";
+};
+
+export function estimateProjectDuration(areaSqm: number, profile?: Partial<ProjectProfile>, serviceIds: string[] = []): ProjectDurationEstimate {
+  const area = Math.max(0, Number(areaSqm || 0));
+  const text = `${String(profile?.projectType || "")} ${String(profile?.useCase || "")} ${String((profile as any)?.customProject || "")}`.toLowerCase();
+  if (!area || area > 1000 || /other:|custom|unsure/.test(text)) {
+    return { label: "To be confirmed after site assessment", basis: "The project conditions or scale require a site review before a reliable duration can be stated.", confidence: "site_review_required" };
+  }
+  const hasInstallation = serviceIds.some((id) => /install|masonry|terrace|site-preparation|placement/.test(id));
+  const multiplier = hasInstallation ? 1 : 0;
+  let minDays = 1;
+  let maxDays = 2;
+  let basis = "Based on the project area and the selected scope; final scheduling is confirmed by Merica.";
+  if (/driveway|parking|construction|structural/.test(text)) { minDays = 2; maxDays = 4; basis = "Based on a new base or structural preparation area and the selected scope."; }
+  else if (/drainage|erosion|runoff/.test(text)) { minDays = 2; maxDays = 4; basis = "Based on drainage preparation and material placement for the stated area."; }
+  else if (/wall|masonry|repair|fix/.test(text)) { minDays = 1; maxDays = 3; basis = "Based on small wall or masonry work; existing conditions can change the duration."; }
+  else if (/terrace|patio|pathway|walkway/.test(text)) { minDays = 2; maxDays = 4; basis = "Based on preparing and finishing an outdoor surface."; }
+  else if (/landscap|garden/.test(text)) { minDays = 1; maxDays = 3; basis = "Based on a landscape material placement scope for the stated area."; }
+  const areaDays = Math.ceil(area / 40);
+  minDays += Math.min(5, areaDays - 1 + multiplier);
+  maxDays += Math.min(7, areaDays + multiplier);
+  return { label: `${minDays}–${maxDays} working days`, basis, confidence: "standard" };
 }
 
 export function calculateQuoteTotals(input: {

@@ -138,7 +138,7 @@ export default function VerifyCustomersPage() {
                     <td className="px-5 py-4">
                       {customer.identity_document ? (
                         <button
-                          onClick={() => setViewingDoc(customer.identity_document)}
+                          onClick={() => setViewingDoc(`/api/admin/documents?userId=${encodeURIComponent(customer.id)}`)}
                           className="text-accent-600 hover:text-accent-700 font-medium text-xs underline"
                         >
                           View Document

@@ -15,6 +15,7 @@ type ProjectProfile = {
   maintenance: string;
   indoorOutdoor: string;
   budget: string;
+  budgetTarget?: number;
   constructionStage: string;
   constructionMethod: string;
   customProject?: string;
@@ -71,6 +72,7 @@ export default function HomeEstimatorWizard() {
   const [width, setWidth] = useState("");
   const [area, setArea] = useState("");
   const [depthCm, setDepthCm] = useState("5"); // Height/depth thickness in cm (default 5cm)
+  const [targetBudget, setTargetBudget] = useState("");
   const [customProject, setCustomProject] = useState("");
   const [profile, setProfile] = useState<ProjectProfile>(EMPTY_PROFILE);
   const [questionnaireOpen, setQuestionnaireOpen] = useState(false);
@@ -133,7 +135,8 @@ export default function HomeEstimatorWizard() {
           serviceIds: nextServiceIds,
           selectedProductId: nextProductId,
           deliveryZoneId: nextDeliveryZoneId,
-          projectProfile: { ...nextProfile, projectType: nextProfile.projectType === "other" && customProject ? `other: ${customProject}` : nextProfile.projectType },
+          targetBudget: Number(targetBudget || 0),
+          projectProfile: { ...nextProfile, budgetTarget: Number(targetBudget || 0) || undefined, projectType: nextProfile.projectType === "other" && customProject ? `other: ${customProject}` : nextProfile.projectType },
         }),
       });
       const data = await response.json();
@@ -246,7 +249,8 @@ export default function HomeEstimatorWizard() {
     if (selectedRecommendation) params.set("material", selectedRecommendation.id);
     if (deliveryZoneId) params.set("zone", deliveryZoneId);
     if (selectedServiceIds.length) params.set("services", selectedServiceIds.join(","));
-    params.set("profile", JSON.stringify({ ...profile, customProject }));
+    if (targetBudget) params.set("targetBudget", targetBudget);
+    params.set("profile", JSON.stringify({ ...profile, customProject, budgetTarget: Number(targetBudget || 0) || undefined }));
     window.location.assign(`/estimator?${params.toString()}`);
   };
 
@@ -330,6 +334,13 @@ export default function HomeEstimatorWizard() {
                       />
                     </div>
                   )}
+                  {question.key === "budget" && (
+                    <div className="mt-4 rounded-xl border border-emerald-300/20 bg-emerald-300/10 p-4">
+                      <label className="block text-xs font-medium text-emerald-100">Optional target budget (₱)</label>
+                      <input type="number" min="0" step="1000" value={targetBudget} onChange={(e) => setTargetBudget(e.target.value)} onInput={(e) => setTargetBudget(e.currentTarget.value)} placeholder="e.g. 50000" className="mt-2 w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 focus:border-emerald-300" />
+                      <p className="mt-2 text-xs leading-5 text-emerald-100/80">This compares the estimate with your target without reducing technically required quantities.</p>
+                    </div>
+                  )}
 
                   <div className="mt-5 flex justify-between gap-3">
                     <button type="button" onClick={previousQuestion} className="inline-flex items-center text-sm font-semibold text-slate-300 hover:text-white"><ChevronLeft className="mr-1 h-4 w-4" /> Back</button>
@@ -378,6 +389,8 @@ export default function HomeEstimatorWizard() {
                   </div>
 
                   <div className="rounded-2xl border border-sky-200 bg-sky-50 p-5"><p className="text-xs font-semibold uppercase tracking-[.15em] text-sky-700">Optional style direction</p><p className="mt-2 text-sm leading-6 text-sky-950">{styleGuidance}</p><p className="mt-2 text-xs leading-5 text-sky-800">For repairs and custom work, this is guidance only because the existing site condition and exact finish cannot be verified from the questionnaire.</p></div>
+                  {estimate?.estimatedDuration && <div className="rounded-2xl border border-violet-200 bg-violet-50 p-5"><p className="text-xs font-semibold uppercase tracking-[.15em] text-violet-700">Estimated project duration</p><p className="mt-2 text-lg font-semibold text-violet-950">{estimate.estimatedDuration.label}</p><p className="mt-1 text-xs leading-5 text-violet-800">{estimate.estimatedDuration.basis} Final scheduling is subject to site confirmation.</p></div>}
+                  {estimate?.budgetComparison && <div className={`rounded-2xl border p-5 ${estimate.budgetComparison.status === "over_budget" ? "border-amber-200 bg-amber-50" : "border-emerald-200 bg-emerald-50"}`}><p className={`text-xs font-semibold uppercase tracking-[.15em] ${estimate.budgetComparison.status === "over_budget" ? "text-amber-700" : "text-emerald-700"}`}>Budget check</p><p className={`mt-2 text-sm leading-6 ${estimate.budgetComparison.status === "over_budget" ? "text-amber-950" : "text-emerald-950"}`}>{estimate.budgetComparison.message}</p></div>}
 
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label className="rounded-xl border border-slate-200 p-4 text-sm font-semibold text-slate-700">Delivery zone

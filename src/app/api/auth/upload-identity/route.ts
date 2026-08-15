@@ -5,44 +5,38 @@ import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import crypto from "crypto";
 
+const MAX_SIZE = 5 * 1024 * 1024;
+const ALLOWED_TYPES: Record<string, string> = {
+  "image/jpeg": ".jpg",
+  "image/png": ".png",
+  "image/gif": ".gif",
+  "application/pdf": ".pdf",
+};
+
 export async function POST(req: NextRequest) {
   const session = getSessionFromRequest(req);
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
-    if (!file) {
-      return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
-    }
+    if (!file) return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
+    if (file.size <= 0 || file.size > MAX_SIZE) return NextResponse.json({ error: "File must be between 1 byte and 5MB." }, { status: 400 });
 
-    const maxSize = 5 * 1024 * 1024;
-    if (file.size > maxSize) {
-      return NextResponse.json({ error: "File too large. Maximum size is 5MB." }, { status: 400 });
-    }
+    const extension = ALLOWED_TYPES[file.type];
+    if (!extension) return NextResponse.json({ error: "Invalid file type. Allowed: JPG, PNG, GIF, PDF" }, { status: 400 });
 
-    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "application/pdf"];
-    if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json({ error: "Invalid file type. Allowed: JPG, PNG, GIF, PDF" }, { status: 400 });
-    }
-
-    const ext = path.extname(file.name) || ".jpg";
-    const filename = `${crypto.randomUUID()}${ext}`;
-    const uploadDir = path.join(process.cwd(), "public", "uploads", "identities");
+    const filename = `${crypto.randomUUID()}${extension}`;
+    const uploadDir = path.join(process.cwd(), "private_uploads", "identities");
     await mkdir(uploadDir, { recursive: true });
-    const filepath = path.join(uploadDir, filename);
-    const buffer = Buffer.from(await file.arrayBuffer());
-    await writeFile(filepath, buffer);
+    await writeFile(path.join(uploadDir, filename), Buffer.from(await file.arrayBuffer()), { flag: "wx" });
 
-    const fileUrl = `/uploads/identities/${filename}`;
-    const db = getDb();
-    db.prepare("UPDATE users SET identity_document = ? WHERE id = ?").run(fileUrl, session.user.id);
+    const storedReference = `private:identities/${filename}`;
+    getDb().prepare("UPDATE users SET identity_document = ?, account_status = CASE WHEN account_status = 'rejected' THEN 'pending' ELSE account_status END WHERE id = ?").run(storedReference, session.user.id);
 
-    return NextResponse.json({ url: fileUrl });
+    return NextResponse.json({ success: true, status: "pending" });
   } catch (error) {
-    console.error("Upload error:", error);
+    console.error("Upload identity error:", error);
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
 }

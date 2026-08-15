@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest, updateAccountStatus } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const session = getSessionFromRequest(req);
+  if (!session || session.user.role !== "admin") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   const db = getDb();
   const customers = db.prepare(
     `SELECT id, email, username, name, first_name, last_name, phone, company_name,
