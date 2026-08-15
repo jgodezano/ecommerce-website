@@ -6,8 +6,68 @@ import { categories } from "@/data/categories";
 import { testimonials } from "@/data/testimonials";
 import { deliveryZones } from "@/data/delivery";
 
+function seedEstimationDefaults(db: ReturnType<typeof getDb>) {
+  const landscapingCategory = categories.find((category) => category.id === "landscaping-materials");
+  if (landscapingCategory) {
+    db.prepare("INSERT OR IGNORE INTO categories (id, name, slug, description, image, featured, product_count) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
+      landscapingCategory.id, landscapingCategory.name, landscapingCategory.slug, landscapingCategory.description,
+      landscapingCategory.image, landscapingCategory.featured ? 1 : 0, landscapingCategory.productCount,
+    );
+  }
+
+  const estimationProducts = [
+    {
+      id: "washed-gravel-20mm", name: "Washed Gravel 20mm", slug: "washed-gravel-20mm", sku: "LM-WG20",
+      description: "Clean, rounded aggregate for garden beds, pathways, and practical low-maintenance landscaping.",
+      image: "/images/home/landscape-rocks.webp", unit: "bag", price: 380, stock: 500, materialType: "Landscape gravel",
+      coverage: 0.5, wastage: 10, tags: ["decorative", "pathway", "low-maintenance", "drainage"], projects: ["landscaping", "garden", "pathway", "drainage"],
+      usage: "medium", finish: "natural", location: "outdoor", drainage: 1, heavyLoad: 0, color: "neutral",
+    },
+    {
+      id: "decorative-white-pebbles", name: "Decorative White Pebbles", slug: "decorative-white-pebbles", sku: "LM-DWP01",
+      description: "Bright decorative pebbles for feature beds, borders, courtyards, and clean modern garden finishes.",
+      image: "/images/home/rock-garden.jpg", unit: "bag", price: 520, stock: 300, materialType: "Decorative stone",
+      coverage: 0.45, wastage: 12, tags: ["decorative", "planting-bed", "low-maintenance", "modern"], projects: ["landscaping", "garden"],
+      usage: "light", finish: "clean modern", location: "both", drainage: 1, heavyLoad: 0, color: "white",
+    },
+    {
+      id: "drainage-aggregate-40mm", name: "Drainage Aggregate 40mm", slug: "drainage-aggregate-40mm", sku: "LM-DA40",
+      description: "Open-graded aggregate for drainage layers, runoff control, soakaways, and erosion-prone areas.",
+      image: "/images/home/landscape-stone-garden.jpg", unit: "bag", price: 430, stock: 450, materialType: "Drainage aggregate",
+      coverage: 0.4, wastage: 15, tags: ["drainage", "erosion-control", "utility", "low-maintenance"], projects: ["drainage", "landscaping", "construction"],
+      usage: "heavy", finish: "natural", location: "outdoor", drainage: 1, heavyLoad: 1, color: "neutral",
+    },
+    {
+      id: "compacted-base-course", name: "Compacted Base Course", slug: "compacted-base-course", sku: "LM-CBC01",
+      description: "Dense graded base material for driveways, parking areas, patios, and stable construction preparation.",
+      image: "/images/home/landscape-rocks.webp", unit: "bag", price: 460, stock: 600, materialType: "Base course",
+      coverage: 0.35, wastage: 15, tags: ["driveway", "walkway-base", "construction", "heavy-load"], projects: ["driveway", "pathway", "construction"],
+      usage: "heavy", finish: "practical", location: "outdoor", drainage: 0, heavyLoad: 1, color: "dark",
+    },
+  ];
+
+  const insertProduct = db.prepare(`INSERT OR IGNORE INTO products
+    (id, name, slug, sku, category_id, description, images, specifications, sizes, weight, unit, price, stock, low_stock_threshold, stock_status, featured, best_seller, material_type, delivery_info, coverage_per_unit, wastage_percent, minimum_quantity, estimation_enabled, is_active, recommendation_tags, recommended_projects, usage_rating, finish_style, indoor_outdoor, drainage_suitable, heavy_load_suitable, color_family)
+    VALUES (?, ?, ?, ?, 'landscaping-materials', ?, ?, '[]', '[]', '25kg bag', ?, ?, ?, 25, 'in_stock', 1, 1, ?, 'Available for local delivery', ?, ?, 1, 1, 1, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  for (const product of estimationProducts) {
+    insertProduct.run(
+      product.id, product.name, product.slug, product.sku, product.description, JSON.stringify([product.image]), product.unit, product.price,
+      product.stock, product.materialType, product.coverage, product.wastage, JSON.stringify(product.tags), JSON.stringify(product.projects),
+      product.usage, product.finish, product.location, product.drainage, product.heavyLoad, product.color,
+    );
+  }
+
+  const services = [
+    ["demo-delivery", "Delivery", "Scheduled delivery to your selected project zone.", "flat", 1500, "service"],
+    ["demo-installation", "Installation support", "On-site placement and basic installation support.", "per_sqm", 120, "m²"],
+  ];
+  const insertService = db.prepare("INSERT OR IGNORE INTO quote_services (id, name, description, pricing_model, price, unit, active) VALUES (?, ?, ?, ?, ?, ?, 1)");
+  for (const service of services) insertService.run(...service);
+}
+
 export function seedDatabase() {
   const db = getDb();
+  seedEstimationDefaults(db);
 
   const userCount = (db.prepare("SELECT COUNT(*) as count FROM users").get() as any).count;
   if (userCount > 0) {
@@ -29,7 +89,7 @@ export function seedDatabase() {
   ).run(demoId, "demo@mericahouseofrocks.ph", "demo", demoHash, "Demo User", "Demo", "User", "customer");
 
   const insertCategory = db.prepare(
-    "INSERT INTO categories (id, name, slug, description, image, featured, product_count) VALUES (?, ?, ?, ?, ?, ?, ?)"
+    "INSERT OR IGNORE INTO categories (id, name, slug, description, image, featured, product_count) VALUES (?, ?, ?, ?, ?, ?, ?)"
   );
   for (const cat of categories) {
     insertCategory.run(cat.id, cat.name, cat.slug, cat.description, cat.image, cat.featured ? 1 : 0, cat.productCount);
@@ -102,5 +162,3 @@ export function seedDatabase() {
     insertGallery.run(crypto.randomUUID(), proj.title, proj.description, "", JSON.stringify(proj.materials_used), proj.total_cost);
   }
 }
-
-seedDatabase();

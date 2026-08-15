@@ -2,6 +2,15 @@ import { Category } from "@/types";
 
 export const categories: Category[] = [
   {
+    id: "landscaping-materials",
+    name: "Landscaping Materials",
+    slug: "landscaping-materials",
+    description: "Practical gravel, decorative stone, drainage aggregate, and pathway materials for gardens, driveways, and outdoor projects.",
+    image: "/images/home/landscape-stone-garden.jpg",
+    productCount: 4,
+    featured: true,
+  },
+  {
     id: "raw-crystals",
     name: "Raw Crystals",
     slug: "raw-crystals",
