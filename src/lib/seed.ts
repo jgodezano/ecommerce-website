@@ -19,49 +19,49 @@ function seedEstimationDefaults(db: ReturnType<typeof getDb>) {
     {
       id: "washed-gravel-20mm", name: "Washed Gravel 20mm", slug: "washed-gravel-20mm", sku: "LM-WG20",
       description: "Clean, rounded aggregate for garden beds, pathways, terraces, and practical low-maintenance landscaping.",
-      image: "/images/home/landscape-rocks.webp", unit: "bag", price: 380, stock: 500, materialType: "Landscape gravel",
+      image: "/images/home/landscape-rocks.webp", unit: "bag", price: 380, stock: 500, materialType: "Landscape gravel", packSize: "25kg bag",
       coverage: 0.5, wastage: 10, tags: ["surface", "driveway", "pathway", "low-maintenance", "landscaping", "garden", "planting-bed", "maintenance"], projects: ["landscaping", "garden", "pathway", "terrace", "driveway"],
       usage: "heavy", finish: "natural", location: "outdoor", drainage: 1, heavyLoad: 1, color: "neutral",
     },
     {
       id: "decorative-white-pebbles", name: "Decorative White Pebbles", slug: "decorative-white-pebbles", sku: "LM-DWP01",
       description: "Bright decorative pebbles for feature beds, borders, courtyards, and clean modern garden finishes.",
-      image: "/images/home/rock-garden.jpg", unit: "bag", price: 520, stock: 300, materialType: "Decorative stone",
+      image: "/images/home/rock-garden.jpg", unit: "bag", price: 520, stock: 300, materialType: "Decorative stone", packSize: "25kg bag",
       coverage: 0.45, wastage: 12, tags: ["decorative", "planting-bed", "low-maintenance", "modern", "landscaping", "garden", "maintenance"], projects: ["landscaping", "garden", "terrace"],
       usage: "light", finish: "clean modern", location: "both", drainage: 1, heavyLoad: 0, color: "white",
     },
     {
       id: "drainage-aggregate-40mm", name: "Drainage Aggregate 40mm", slug: "drainage-aggregate-40mm", sku: "LM-DA40",
       description: "Open-graded aggregate for drainage layers, runoff control, soakaways, and erosion-prone areas.",
-      image: "/images/home/landscape-stone-garden.jpg", unit: "bag", price: 430, stock: 450, materialType: "Drainage aggregate",
+      image: "/images/home/landscape-stone-garden.jpg", unit: "bag", price: 430, stock: 450, materialType: "Drainage aggregate", packSize: "25kg bag",
       coverage: 0.4, wastage: 15, tags: ["drainage", "erosion-control", "utility", "low-maintenance"], projects: ["drainage", "construction"],
       usage: "heavy", finish: "natural", location: "outdoor", drainage: 1, heavyLoad: 1, color: "neutral",
     },
     {
       id: "compacted-base-course", name: "Compacted Base Course", slug: "compacted-base-course", sku: "LM-CBC01",
       description: "Dense graded base material for driveways, parking areas, patios, and stable construction preparation.",
-      image: "/images/home/landscape-rocks.webp", unit: "bag", price: 460, stock: 600, materialType: "Base course",
+      image: "/images/home/landscape-rocks.webp", unit: "bag", price: 460, stock: 600, materialType: "Base course", packSize: "25kg bag",
       coverage: 0.35, wastage: 15, tags: ["driveway", "walkway-base", "construction", "heavy-load", "build-new", "structural", "terrace", "foundation"], projects: ["driveway", "pathway", "construction", "terrace"],
       usage: "heavy", finish: "practical", location: "outdoor", drainage: 0, heavyLoad: 1, color: "dark",
     },
     {
       id: "masonry-sand", name: "Masonry Sand", slug: "masonry-sand", sku: "CM-MS01",
       description: "Fine sand for mortar, masonry repair, blockwork, and wall construction.",
-      image: "/images/home/landscape-rocks.webp", unit: "bag", price: 290, stock: 500, materialType: "Masonry sand",
+      image: "/images/home/landscape-rocks.webp", unit: "bag", price: 290, stock: 500, materialType: "Masonry sand", packSize: "25kg bag",
       coverage: 0.3, wastage: 10, tags: ["repair-fix", "masonry", "construction", "structural", "build-new"], projects: ["wall", "construction", "other"],
       usage: "medium", finish: "practical", location: "both", drainage: 0, heavyLoad: 0, color: "neutral",
     },
     {
       id: "portland-cement-40kg", name: "Portland Cement 40kg", slug: "portland-cement-40kg", sku: "CM-PC40",
       description: "General-purpose cement for wall repairs, mortar, footings, slabs, and small construction work.",
-      image: "/images/home/landscape-rocks.webp", unit: "bag", price: 320, stock: 450, materialType: "Cement",
+      image: "/images/home/landscape-rocks.webp", unit: "bag", price: 320, stock: 450, materialType: "Cement", packSize: "40kg bag",
       coverage: 0.18, wastage: 8, tags: ["repair-fix", "masonry", "construction", "structural", "build-new", "foundation", "terrace"], projects: ["wall", "construction", "terrace", "other"],
       usage: "heavy", finish: "practical", location: "both", drainage: 0, heavyLoad: 1, color: "neutral",
     },
     {
       id: "concrete-hollow-block-4in", name: "Concrete Hollow Block 4in", slug: "concrete-hollow-block-4in", sku: "CM-CHB04",
       description: "Standard concrete masonry block for garden walls, partitions, retaining work, and small structural builds.",
-      image: "/images/home/landscape-rocks.webp", unit: "piece", price: 18, stock: 10000, materialType: "Concrete masonry block",
+      image: "/images/home/landscape-rocks.webp", unit: "piece", price: 18, stock: 10000, materialType: "Concrete masonry block", packSize: "4-inch block",
       coverage: 0.08, wastage: 8, tags: ["repair-fix", "masonry", "wall", "construction", "structural", "build-new", "terrace"], projects: ["wall", "construction", "terrace", "other"],
       usage: "heavy", finish: "practical", location: "both", drainage: 0, heavyLoad: 1, color: "neutral",
     },
@@ -71,7 +71,7 @@ function seedEstimationDefaults(db: ReturnType<typeof getDb>) {
     (id, name, slug, sku, category_id, description, images, specifications, sizes, weight, unit, price, stock, low_stock_threshold, stock_status, featured, best_seller, material_type, delivery_info, coverage_per_unit, wastage_percent, minimum_quantity, estimation_enabled, is_active, recommendation_tags, recommended_projects, usage_rating, finish_style, indoor_outdoor, drainage_suitable, heavy_load_suitable, color_family)
     VALUES (?, ?, ?, ?, 'landscaping-materials', ?, ?, '[]', '[]', '25kg bag', ?, ?, ?, 25, 'in_stock', 1, 1, ?, 'Available for local delivery', ?, ?, 1, 1, 1, ?, ?, ?, ?, ?, ?, ?, ?)`);
   const updateProductProfile = db.prepare(`UPDATE products SET
-    name = ?, description = ?, images = ?, unit = ?, price = ?, stock = ?, material_type = ?,
+    name = ?, description = ?, images = ?, unit = ?, price = ?, stock = ?, material_type = ?, weight = ?,
     coverage_per_unit = ?, wastage_percent = ?, estimation_enabled = 1, is_active = 1,
     recommendation_tags = ?, recommended_projects = ?, usage_rating = ?, finish_style = ?,
     indoor_outdoor = ?, drainage_suitable = ?, heavy_load_suitable = ?, color_family = ?
@@ -83,7 +83,7 @@ function seedEstimationDefaults(db: ReturnType<typeof getDb>) {
       product.usage, product.finish, product.location, product.drainage, product.heavyLoad, product.color,
     );
     updateProductProfile.run(
-      product.name, product.description, JSON.stringify([product.image]), product.unit, product.price, product.stock, product.materialType,
+      product.name, product.description, JSON.stringify([product.image]), product.unit, product.price, product.stock, product.materialType, product.packSize,
       product.coverage, product.wastage, JSON.stringify(product.tags), JSON.stringify(product.projects), product.usage, product.finish,
       product.location, product.drainage, product.heavyLoad, product.color, product.id,
     );

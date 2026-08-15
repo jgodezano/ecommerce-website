@@ -23,7 +23,9 @@ function getProjectSystem(profile?: Partial<ProjectProfile>): { kind: SystemKind
   if (/drainage|erosion|runoff|soakaway/.test(text) || profile?.drainagePriority === "high") {
     return { kind: "drainage", name: "Drainage and erosion-control system", purpose: "An open drainage layer and supporting aggregate system for moving water and protecting exposed soil.", allowedRoles: ["drainage", "base"] };
   }
-  if (/wall|masonry|retaining|repair|fix/.test(text) || useCase === "repair-fix") {
+  const projectMentionsWall = /wall|masonry|retaining/.test(`${rawProjectType} ${custom}`);
+  const customRepair = rawProjectType === "other" && /repair|fix/.test(`${custom} ${useCase}`);
+  if (projectMentionsWall || customRepair) {
     return { kind: "wall", name: "Wall repair / masonry system", purpose: "Masonry units, binder, and sand for repair, blockwork, retaining-wall, and small structural work.", allowedRoles: ["masonry", "binder"] };
   }
   if (/terrace|patio/.test(text)) {
@@ -123,7 +125,15 @@ export async function POST(req: NextRequest) {
 
     const systemProducts = projectProfile ? products.filter((product: any) => product.systemCompatible) : products;
     const fallbackProducts = projectProfile && system.kind === "landscape" ? products.filter((product: any) => product.systemRole === "decorative" || product.systemRole === "surface") : products;
-    const shortlist = (systemProducts.length ? systemProducts : fallbackProducts).slice(0, system.kind === "wall" ? 4 : 5);
+    const candidateProducts = systemProducts.length ? systemProducts : fallbackProducts;
+    const roleSlots: SystemRole[] = system.kind === "parking" ? ["base", "binder", "binder", "surface"] : system.kind === "wall" ? ["masonry", "binder", "binder"] : system.kind === "terrace" ? ["base", "binder", "surface"] : system.kind === "construction" ? ["base", "binder", "binder", "masonry", "surface"] : system.kind === "drainage" ? ["drainage", "base"] : ["decorative", "surface"];
+    const selectedSystemProducts: any[] = [];
+    for (const role of roleSlots) {
+      const next = candidateProducts.find((product: any) => product.systemRole === role && !selectedSystemProducts.some((selectedProduct) => selectedProduct.id === product.id));
+      if (next) selectedSystemProducts.push(next);
+    }
+    const maxShortlist = system.kind === "wall" ? 4 : 5;
+    const shortlist = [...selectedSystemProducts, ...candidateProducts.filter((product: any) => !selectedSystemProducts.some((selectedProduct) => selectedProduct.id === product.id))].slice(0, maxShortlist);
 
     const serviceIds = Array.isArray(body.serviceIds) ? body.serviceIds.map(String) : [];
     const targetBudget = Number(body.targetBudget || (projectProfile as any)?.budgetTarget || 0);

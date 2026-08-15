@@ -30,6 +30,7 @@ type Recommendation = {
   price: number;
   coveragePerUnit: number;
   wastagePercent: number;
+  packageSize?: string;
   systemRole?: string;
   systemRequired?: boolean;
   purpose?: string;
@@ -86,7 +87,6 @@ export default function HomeEstimatorWizard() {
   const [deliveryZoneId, setDeliveryZoneId] = useState("");
   const [estimate, setEstimate] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -228,20 +228,6 @@ export default function HomeEstimatorWizard() {
     if (estimate) await calculate(selectedProductId, selectedServiceIds, id, profile);
   };
 
-  const addToQuoteList = async () => {
-    if (!selectedRecommendation) return;
-    setIsAddingToCart(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 800));
-      setMessage(`${selectedRecommendation.name} added to your quote list.`);
-      setTimeout(() => setMessage(""), 3000);
-    } catch (err) {
-      setError("Unable to add to quote list.");
-    } finally {
-      setIsAddingToCart(false);
-    }
-  };
-
   const openFullQuotation = () => {
     const params = new URLSearchParams();
     params.set("area", computedArea.toString());
@@ -378,7 +364,7 @@ export default function HomeEstimatorWizard() {
                             <div className="min-w-0 flex-1">
                               <div className="flex items-start gap-3"><div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-slate-100">{item.image ? <img src={item.image} alt={item.name} className="h-full w-full object-cover" /> : <Layers3 className="m-3 h-8 w-8 text-slate-400" />}</div><div><p className="font-semibold text-slate-950">{item.name}</p><p className="mt-1 text-[11px] font-bold uppercase tracking-[.12em] text-emerald-700">{item.systemRole || "project material"}{item.systemRequired ? " · required component" : ""}</p></div></div>
                               <div className="mt-3 flex items-baseline gap-2"><span className="text-2xl font-bold text-emerald-800">{item.estimate.recommendedQuantity}</span><span className="text-sm font-semibold text-emerald-800">{item.unit} estimated</span></div>
-                              <p className="mt-1 text-xs text-slate-600">{item.purpose || `Based on ${item.coveragePerUnit} m²/${item.unit} coverage and ${item.wastagePercent}% allowance`}</p>
+                              <p className="mt-1 text-xs text-slate-600">{item.packageSize ? `${item.packageSize} · ` : ""}{item.purpose || `Based on ${item.coveragePerUnit} m²/${item.unit} coverage and ${item.wastagePercent}% allowance`}</p>
                               {item.matchReasons?.length ? <p className="mt-2 text-xs leading-5 text-emerald-800">{item.matchReasons.join(" · ")}</p> : null}
                             </div>
                             <p className="whitespace-nowrap text-sm font-bold text-emerald-800">{formatPrice(item.estimate.materialTotal)}</p>
@@ -432,9 +418,9 @@ export default function HomeEstimatorWizard() {
                     <p className="mt-3 text-xs leading-5 text-slate-400">Demo quotation based on configured SQLite inventory. Final pricing and availability can be confirmed when you connect the production database.</p>
                     <div className="mt-5 flex flex-col gap-2">
                       <Button onClick={openFullQuotation} className="w-full bg-emerald-400 text-slate-950 hover:bg-emerald-300">Open full quotation <ArrowRight className="ml-2 h-4 w-4" /></Button>
-                      <Button onClick={addToQuoteList} disabled={isAddingToCart} variant="outline" className="w-full border-emerald-300/30 bg-white/10 text-emerald-300 hover:bg-white/20">
-                        {isAddingToCart ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PackageCheck className="mr-2 h-4 w-4" />}
-                        Add to quote list
+                      <Button onClick={openFullQuotation} variant="outline" className="w-full border-emerald-300/30 bg-white/10 text-emerald-300 hover:bg-white/20">
+                        <PackageCheck className="mr-2 h-4 w-4" />
+                        Continue to save quote list
                       </Button>
                     </div>
                     {message && <p className="mt-3 text-center text-sm font-semibold text-emerald-300">{message}</p>}
