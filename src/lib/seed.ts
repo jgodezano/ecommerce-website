@@ -18,51 +18,84 @@ function seedEstimationDefaults(db: ReturnType<typeof getDb>) {
   const estimationProducts = [
     {
       id: "washed-gravel-20mm", name: "Washed Gravel 20mm", slug: "washed-gravel-20mm", sku: "LM-WG20",
-      description: "Clean, rounded aggregate for garden beds, pathways, and practical low-maintenance landscaping.",
+      description: "Clean, rounded aggregate for garden beds, pathways, terraces, and practical low-maintenance landscaping.",
       image: "/images/home/landscape-rocks.webp", unit: "bag", price: 380, stock: 500, materialType: "Landscape gravel",
-      coverage: 0.5, wastage: 10, tags: ["decorative", "pathway", "low-maintenance", "drainage"], projects: ["landscaping", "garden", "pathway", "drainage"],
+      coverage: 0.5, wastage: 10, tags: ["decorative", "pathway", "low-maintenance", "landscaping", "garden", "planting-bed", "maintenance"], projects: ["landscaping", "garden", "pathway", "terrace"],
       usage: "medium", finish: "natural", location: "outdoor", drainage: 1, heavyLoad: 0, color: "neutral",
     },
     {
       id: "decorative-white-pebbles", name: "Decorative White Pebbles", slug: "decorative-white-pebbles", sku: "LM-DWP01",
       description: "Bright decorative pebbles for feature beds, borders, courtyards, and clean modern garden finishes.",
       image: "/images/home/rock-garden.jpg", unit: "bag", price: 520, stock: 300, materialType: "Decorative stone",
-      coverage: 0.45, wastage: 12, tags: ["decorative", "planting-bed", "low-maintenance", "modern"], projects: ["landscaping", "garden"],
+      coverage: 0.45, wastage: 12, tags: ["decorative", "planting-bed", "low-maintenance", "modern", "landscaping", "garden", "maintenance"], projects: ["landscaping", "garden", "terrace"],
       usage: "light", finish: "clean modern", location: "both", drainage: 1, heavyLoad: 0, color: "white",
     },
     {
       id: "drainage-aggregate-40mm", name: "Drainage Aggregate 40mm", slug: "drainage-aggregate-40mm", sku: "LM-DA40",
       description: "Open-graded aggregate for drainage layers, runoff control, soakaways, and erosion-prone areas.",
       image: "/images/home/landscape-stone-garden.jpg", unit: "bag", price: 430, stock: 450, materialType: "Drainage aggregate",
-      coverage: 0.4, wastage: 15, tags: ["drainage", "erosion-control", "utility", "low-maintenance"], projects: ["drainage", "landscaping", "construction"],
+      coverage: 0.4, wastage: 15, tags: ["drainage", "erosion-control", "utility", "low-maintenance"], projects: ["drainage", "construction"],
       usage: "heavy", finish: "natural", location: "outdoor", drainage: 1, heavyLoad: 1, color: "neutral",
     },
     {
       id: "compacted-base-course", name: "Compacted Base Course", slug: "compacted-base-course", sku: "LM-CBC01",
       description: "Dense graded base material for driveways, parking areas, patios, and stable construction preparation.",
       image: "/images/home/landscape-rocks.webp", unit: "bag", price: 460, stock: 600, materialType: "Base course",
-      coverage: 0.35, wastage: 15, tags: ["driveway", "walkway-base", "construction", "heavy-load"], projects: ["driveway", "pathway", "construction"],
+      coverage: 0.35, wastage: 15, tags: ["driveway", "walkway-base", "construction", "heavy-load", "build-new", "structural", "terrace", "foundation"], projects: ["driveway", "pathway", "construction", "terrace"],
       usage: "heavy", finish: "practical", location: "outdoor", drainage: 0, heavyLoad: 1, color: "dark",
+    },
+    {
+      id: "masonry-sand", name: "Masonry Sand", slug: "masonry-sand", sku: "CM-MS01",
+      description: "Fine sand for mortar, masonry repair, blockwork, and wall construction.",
+      image: "/images/home/landscape-rocks.webp", unit: "bag", price: 290, stock: 500, materialType: "Masonry sand",
+      coverage: 0.3, wastage: 10, tags: ["repair-fix", "masonry", "construction", "structural", "build-new"], projects: ["wall", "construction", "other"],
+      usage: "medium", finish: "practical", location: "both", drainage: 0, heavyLoad: 0, color: "neutral",
+    },
+    {
+      id: "portland-cement-40kg", name: "Portland Cement 40kg", slug: "portland-cement-40kg", sku: "CM-PC40",
+      description: "General-purpose cement for wall repairs, mortar, footings, slabs, and small construction work.",
+      image: "/images/home/landscape-rocks.webp", unit: "bag", price: 320, stock: 450, materialType: "Cement",
+      coverage: 0.18, wastage: 8, tags: ["repair-fix", "masonry", "construction", "structural", "build-new", "foundation", "terrace"], projects: ["wall", "construction", "terrace", "other"],
+      usage: "heavy", finish: "practical", location: "both", drainage: 0, heavyLoad: 1, color: "neutral",
     },
   ];
 
   const insertProduct = db.prepare(`INSERT OR IGNORE INTO products
     (id, name, slug, sku, category_id, description, images, specifications, sizes, weight, unit, price, stock, low_stock_threshold, stock_status, featured, best_seller, material_type, delivery_info, coverage_per_unit, wastage_percent, minimum_quantity, estimation_enabled, is_active, recommendation_tags, recommended_projects, usage_rating, finish_style, indoor_outdoor, drainage_suitable, heavy_load_suitable, color_family)
     VALUES (?, ?, ?, ?, 'landscaping-materials', ?, ?, '[]', '[]', '25kg bag', ?, ?, ?, 25, 'in_stock', 1, 1, ?, 'Available for local delivery', ?, ?, 1, 1, 1, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  const updateProductProfile = db.prepare(`UPDATE products SET
+    name = ?, description = ?, images = ?, unit = ?, price = ?, stock = ?, material_type = ?,
+    coverage_per_unit = ?, wastage_percent = ?, estimation_enabled = 1, is_active = 1,
+    recommendation_tags = ?, recommended_projects = ?, usage_rating = ?, finish_style = ?,
+    indoor_outdoor = ?, drainage_suitable = ?, heavy_load_suitable = ?, color_family = ?
+    WHERE id = ?`);
   for (const product of estimationProducts) {
     insertProduct.run(
       product.id, product.name, product.slug, product.sku, product.description, JSON.stringify([product.image]), product.unit, product.price,
       product.stock, product.materialType, product.coverage, product.wastage, JSON.stringify(product.tags), JSON.stringify(product.projects),
       product.usage, product.finish, product.location, product.drainage, product.heavyLoad, product.color,
     );
+    updateProductProfile.run(
+      product.name, product.description, JSON.stringify([product.image]), product.unit, product.price, product.stock, product.materialType,
+      product.coverage, product.wastage, JSON.stringify(product.tags), JSON.stringify(product.projects), product.usage, product.finish,
+      product.location, product.drainage, product.heavyLoad, product.color, product.id,
+    );
   }
 
   const services = [
     ["demo-delivery", "Delivery", "Scheduled delivery to your selected project zone.", "flat", 1500, "service"],
-    ["demo-installation", "Installation support", "On-site placement and basic installation support.", "per_sqm", 120, "m²"],
+    ["demo-landscape-installation", "Landscaping installation", "Placement and installation support for garden beds, decorative stone, and outdoor landscape features.", "per_sqm", 350, "m²"],
+    ["demo-site-preparation", "Site preparation / base preparation", "Basic clearing, leveling, and preparation before placing a base course, aggregate, or finished surface.", "per_sqm", 280, "m²"],
+    ["demo-masonry-wall-work", "Masonry and wall work", "Practical support for wall repairs, blockwork, retaining walls, and small masonry construction.", "per_sqm", 480, "m²"],
+    ["demo-terrace-construction", "Terrace / patio construction", "Construction support for a new terrace or patio, including preparation and material placement.", "per_sqm", 550, "m²"],
+    ["demo-installation", "Material placement and installation", "On-site placement and basic installation support for the selected materials.", "per_sqm", 120, "m²"],
   ];
   const insertService = db.prepare("INSERT OR IGNORE INTO quote_services (id, name, description, pricing_model, price, unit, active) VALUES (?, ?, ?, ?, ?, ?, 1)");
-  for (const service of services) insertService.run(...service);
+  const updateService = db.prepare("UPDATE quote_services SET name = ?, description = ?, pricing_model = ?, price = ?, unit = ?, active = 1 WHERE id = ?");
+  for (const service of services) {
+    insertService.run(...service);
+    updateService.run(service[1], service[2], service[3], service[4], service[5], service[0]);
+  }
 }
 
 export function seedDatabase() {

@@ -18,15 +18,19 @@ type ProjectProfile = {
   maintenance: "low" | "medium" | "high";
   indoorOutdoor: "indoor" | "outdoor" | "both";
   budget: "economy" | "standard" | "premium";
+  constructionStage: string;
+  constructionMethod: string;
+  customProject?: string;
 };
 
 type Recommendation = { id: string; name: string; description: string; image: string; unit: string; price: number; coveragePerUnit: number; wastagePercent: number; matchReasons?: string[]; estimate: { recommendedQuantity: number; materialTotal: number; baseQuantity: number } };
-type Service = { id: string; name: string; description: string; pricingModel: "flat" | "per_sqm"; price: number; unit: string; total?: number };
+type Service = { id: string; name: string; description: string; pricingModel: "flat" | "per_sqm"; price: number; unit: string; total?: number; recommended?: boolean; recommendationReason?: string; selected?: boolean };
 type DeliveryZone = { id: string; name: string; fee: number; min_order_for_free?: number; estimated_days?: string };
+type Question = { key: QuestionKey; title: string; help: string; options: { value: string; label: string; description: string }[]; when?: (profile: ProjectProfile) => boolean };
 type QuestionKey = keyof ProjectProfile;
 
-const INITIAL_PROFILE: ProjectProfile = { projectType: "", useCase: "", loadRequirement: "medium", surfaceType: "soil", drainagePriority: "medium", style: "", colorPreference: "any", maintenance: "medium", indoorOutdoor: "outdoor", budget: "standard" };
-const QUESTIONS: { key: QuestionKey; title: string; help: string; options: { value: string; label: string; description: string }[] }[] = [
+const INITIAL_PROFILE: ProjectProfile = { projectType: "", useCase: "", loadRequirement: "medium", surfaceType: "soil", drainagePriority: "medium", style: "", colorPreference: "any", maintenance: "medium", indoorOutdoor: "outdoor", budget: "standard", constructionStage: "", constructionMethod: "", customProject: "" };
+const QUESTIONS: Question[] = [
   { key: "projectType", title: "What are you building?", help: "This helps us distinguish between decorative, access, walls, and structural needs.", options: [{ value: "landscaping", label: "Landscape feature", description: "Garden beds, borders, accents" }, { value: "garden", label: "Garden area", description: "Planting beds and outdoor spaces" }, { value: "pathway", label: "Walkway or patio", description: "Pedestrian paths and sitting areas" }, { value: "driveway", label: "Driveway or parking", description: "Vehicle access and parking" }, { value: "drainage", label: "Drainage or erosion", description: "Runoff, slopes, and water control" }, { value: "construction", label: "Construction base", description: "A stable base or fill application" }, { value: "other", label: "Other / Custom project", description: "Fixing walls, retaining structures, or custom builds" }] },
   { key: "useCase", title: "What will the material do?", help: "Choose the main job so we can prioritize the right performance characteristics.", options: [{ value: "repair-fix", label: "Repair or fix existing", description: "Fixing walls, filling cracks, or refreshing an area" }, { value: "build-new", label: "Build something new", description: "Create a new feature, wall, or structure from scratch" }, { value: "decorative", label: "Add decoration / finish", description: "Improve visual appeal, color, and texture" }, { value: "structural", label: "Provide structural support", description: "Base layers, retaining weight, or load-bearing" }, { value: "drainage", label: "Manage drainage or erosion", description: "Water control, runoff, and soil protection" }, { value: "maintenance", label: "Reduce maintenance", description: "Covering soil, suppressing weeds, or easy-care surfaces" }] },
   { key: "loadRequirement", title: "How much traffic or load will it receive?", help: "A driveway needs a different material profile than a decorative garden border.", options: [{ value: "light", label: "Light use", description: "Decorative areas or occasional walking" }, { value: "medium", label: "Regular foot traffic", description: "Paths, patios, and everyday use" }, { value: "heavy", label: "Vehicles or heavy loads", description: "Driveways, parking, or equipment" }] },
@@ -37,7 +41,11 @@ const QUESTIONS: { key: QuestionKey; title: string; help: string; options: { val
   { key: "maintenance", title: "How much maintenance do you prefer?", help: "This helps balance appearance with long-term upkeep.", options: [{ value: "low", label: "Keep it low", description: "Minimal refreshing and maintenance" }, { value: "medium", label: "Some upkeep is fine", description: "A balance of appearance and effort" }, { value: "high", label: "I enjoy maintaining it", description: "Prioritize detail and visual control" }] },
   { key: "indoorOutdoor", title: "Where will the material be used?", help: "Some materials are better suited to weather exposure or indoor display.", options: [{ value: "outdoor", label: "Outdoor", description: "Garden, yard, path, or driveway" }, { value: "indoor", label: "Indoor", description: "Interior feature or display" }, { value: "both", label: "Indoor and outdoor", description: "I want a flexible material" }] },
   { key: "budget", title: "What is your starting budget?", help: "This filters the ranking without preventing you from seeing other available options.", options: [{ value: "economy", label: "Economy", description: "Prioritize practical value" }, { value: "standard", label: "Standard", description: "Balance cost and finish" }, { value: "premium", label: "Premium", description: "Prioritize finish and presentation" }] },
+  { key: "constructionStage", title: "What stage is the project at?", help: "This helps us separate a new build from a repair or improvement.", when: (profile) => ["terrace", "wall", "construction", "other"].includes(profile.projectType) || ["repair-fix", "build-new", "structural"].includes(profile.useCase), options: [{ value: "new", label: "New construction", description: "Starting the structure or feature from scratch" }, { value: "repair", label: "Repair existing", description: "Fixing damage, cracks, or a failed section" }, { value: "improvement", label: "Improve or extend", description: "Upgrading or adding to something already there" }] },
+  { key: "constructionMethod", title: "What kind of construction or finish do you need?", help: "If you are unsure, choose the option closest to your idea and we will suggest a practical starting system.", when: (profile) => ["terrace", "wall", "construction"].includes(profile.projectType) || ["build-new", "structural"].includes(profile.useCase), options: [{ value: "foundation", label: "Foundation or concrete base", description: "Footings, slabs, or a stable supporting base" }, { value: "masonry", label: "Wall, block, or retaining work", description: "Masonry, partitions, retaining walls, or repairs" }, { value: "surface", label: "Finished surface or paving", description: "The visible floor, patio, terrace, or walkway finish" }, { value: "unsure", label: "I am not sure", description: "Let the recommendation guide my starting point" }] },
 ];
+
+const QUESTION_FLOW_KEYS: QuestionKey[] = ["projectType", "useCase", "constructionStage", "constructionMethod", "loadRequirement", "surfaceType", "drainagePriority", "style", "colorPreference", "maintenance", "indoorOutdoor", "budget"];
 
 const DISCLAIMER = "This quotation is an estimate based on the information provided. Final quantity, delivery charges, material requirements, and pricing may be confirmed by our team after reviewing your project.";
 
@@ -48,7 +56,7 @@ export default function EstimatorPage() {
   const [depthCm, setDepthCm] = useState("5");
   const [customProject, setCustomProject] = useState("");
   const [deliveryCity, setDeliveryCity] = useState(""); const [deliveryZoneId, setDeliveryZoneId] = useState(""); const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]); const [timeline, setTimeline] = useState(""); const [notes, setNotes] = useState("");
-  const [profile, setProfile] = useState<ProjectProfile>(INITIAL_PROFILE); const [questionnaireOpen, setQuestionnaireOpen] = useState(false); const [questionIndex, setQuestionIndex] = useState(0);
+  const [profile, setProfile] = useState<ProjectProfile>(INITIAL_PROFILE); const [questionnaireOpen, setQuestionnaireOpen] = useState(false); const [editingInputs, setEditingInputs] = useState(true); const [questionIndex, setQuestionIndex] = useState(0);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]); const [services, setServices] = useState<Service[]>([]); const [selectedProductId, setSelectedProductId] = useState(""); const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]); const [estimate, setEstimate] = useState<any>(null);
   const [loading, setLoading] = useState(false); const [submitting, setSubmitting] = useState(false); const [message, setMessage] = useState(""); const [error, setError] = useState("");
 
@@ -69,7 +77,12 @@ export default function EstimatorPage() {
 
   const selectedRecommendation = recommendations.find((item) => item.id === selectedProductId) || recommendations[0];
   const currentTotals = estimate?.totals || { materialTotal: selectedRecommendation?.estimate.materialTotal || 0, deliveryFee: 0, serviceTotal: 0, otherCharges: 0, discount: 0, total: selectedRecommendation?.estimate.materialTotal || 0 };
-  const profileComplete = QUESTIONS.every((question) => Boolean(profile[question.key]));
+  const orderedQuestions = QUESTION_FLOW_KEYS.map((key) => QUESTIONS.find((item) => item.key === key)).filter((item): item is Question => Boolean(item));
+  const visibleQuestions = orderedQuestions.filter((item) => !item.when || item.when(profile));
+  const projectTypeLabel = QUESTIONS[0].options.find((option) => option.value === profile.projectType)?.label || profile.projectType;
+  const useCaseLabel = QUESTIONS[1].options.find((option) => option.value === profile.useCase)?.label || profile.useCase;
+  const constructionStageLabel = QUESTIONS.find((item) => item.key === "constructionStage")?.options.find((option) => option.value === profile.constructionStage)?.label || profile.constructionStage;
+  const constructionMethodLabel = QUESTIONS.find((item) => item.key === "constructionMethod")?.options.find((option) => option.value === profile.constructionMethod)?.label || profile.constructionMethod;
   const activeStep = questionnaireOpen ? 2 : estimate ? 3 : 1;
 
   const calculate = async (nextProductId = selectedProductId, nextServiceIds = selectedServiceIds, nextProfile = profile) => {
@@ -112,12 +125,13 @@ export default function EstimatorPage() {
       setError("Enter your project dimensions first, then we will ask a few questions to match materials.");
       return;
     }
+    setEditingInputs(false);
     setQuestionnaireOpen(true);
     setQuestionIndex(0);
   };
 
   const chooseAnswer = async (value: string) => {
-    const question = QUESTIONS[questionIndex];
+    const question = visibleQuestions[questionIndex];
     const updated = { ...profile, [question.key]: value };
     setProfile(updated);
     setError("");
@@ -126,16 +140,17 @@ export default function EstimatorPage() {
       return;
     }
 
-    if (questionIndex < QUESTIONS.length - 1) {
+    if (questionIndex < visibleQuestions.length - 1) {
       setQuestionIndex((current) => current + 1);
     } else {
       setQuestionnaireOpen(false);
+      setEditingInputs(false);
       await calculate(selectedProductId, selectedServiceIds, updated);
     }
   };
 
   const nextQuestion = async () => {
-    const question = QUESTIONS[questionIndex];
+    const question = visibleQuestions[questionIndex];
     if (!profile[question.key]) {
       setError("Choose an answer so we can make a useful recommendation.");
       return;
@@ -145,11 +160,12 @@ export default function EstimatorPage() {
       return;
     }
     setError("");
-    if (questionIndex < QUESTIONS.length - 1) {
+    if (questionIndex < visibleQuestions.length - 1) {
       setQuestionIndex((current) => current + 1);
       return;
     }
     setQuestionnaireOpen(false);
+    setEditingInputs(false);
     await calculate(selectedProductId, selectedServiceIds, profile);
   };
 
@@ -198,7 +214,7 @@ export default function EstimatorPage() {
     }
   };
 
-  const question = QUESTIONS[questionIndex];
+  const question = visibleQuestions[questionIndex] || visibleQuestions[0];
   return (
     <main className="min-h-screen bg-stone-50">
       <section className="bg-slate-950 text-white">
@@ -226,24 +242,32 @@ export default function EstimatorPage() {
               <h2 className="text-xl font-semibold text-slate-950">01. Enter area and application depth</h2>
               <p className="mt-2 text-sm text-slate-600">Provide your project dimensions. Depth (thickness) helps scale volume accurately for gravel, base courses, and aggregates.</p>
 
-              <div className="mt-6 grid gap-4 sm:grid-cols-3">
-                <label className="text-sm font-medium text-slate-700">Length (m)<input type="number" min="0" step="0.1" value={length} onChange={(e) => setLength(e.target.value)} placeholder="e.g. 10" className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-slate-900 outline-none focus:border-emerald-600" /></label>
-                <label className="text-sm font-medium text-slate-700">Width (m)<input type="number" min="0" step="0.1" value={width} onChange={(e) => setWidth(e.target.value)} placeholder="e.g. 5" className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-slate-900 outline-none focus:border-emerald-600" /></label>
-                <label className="text-sm font-medium text-slate-700" title="Thickness/height in cm">Depth (cm)<input type="number" min="1" max="100" value={depthCm} onChange={(e) => setDepthCm(e.target.value)} placeholder="e.g. 5" className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-slate-900 outline-none focus:border-emerald-600" /></label>
-              </div>
-              <div className="mt-4"><label className="text-sm font-medium text-slate-700">Or enter total area (m²)<input type="number" min="0" step="0.1" value={area} onChange={(e) => setArea(e.target.value)} placeholder="Direct area input" className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-slate-900 outline-none focus:border-emerald-600" /></label><p className="mt-2 text-xs text-slate-500">Effective calculation area: <strong className="text-emerald-700">{computedArea ? `${computedArea.toFixed(2)} m²` : "—"}</strong></p></div>
-
-              <Button onClick={startQuestionnaire} size="lg" className="mt-6 w-full bg-slate-950 text-white hover:bg-slate-900">Start project questionnaire <ArrowRight className="ml-2 h-4 w-4" /></Button>
+              {estimate && !questionnaireOpen && !editingInputs ? (
+                <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+                  <div className="flex items-center justify-between gap-3"><p className="text-xs font-semibold uppercase tracking-[.15em] text-emerald-700">Project summary</p><button type="button" onClick={() => { setEstimate(null); setRecommendations([]); setEditingInputs(true); }} className="text-xs font-semibold text-emerald-700 hover:text-emerald-900">Edit details</button></div>
+                  <dl className="mt-4 space-y-3 text-sm"><div className="flex justify-between gap-4"><dt className="text-slate-500">Project</dt><dd className="text-right font-semibold text-slate-950">{profile.projectType === "other" && customProject ? customProject : projectTypeLabel}</dd></div><div className="flex justify-between gap-4"><dt className="text-slate-500">Main need</dt><dd className="text-right font-semibold text-slate-950">{useCaseLabel || "Not specified"}</dd></div>{constructionStageLabel && <div className="flex justify-between gap-4"><dt className="text-slate-500">Stage</dt><dd className="text-right font-semibold text-slate-950">{constructionStageLabel}</dd></div>}{constructionMethodLabel && <div className="flex justify-between gap-4"><dt className="text-slate-500">Construction focus</dt><dd className="text-right font-semibold text-slate-950">{constructionMethodLabel}</dd></div>}<div className="flex justify-between gap-4"><dt className="text-slate-500">Effective area</dt><dd className="text-right font-semibold text-slate-950">{computedArea.toFixed(2)} m² · {depthCm || 5} cm</dd></div></dl>
+                </div>
+              ) : editingInputs && !questionnaireOpen ? (
+                <>
+                  <div className="mt-6 grid gap-4 sm:grid-cols-3">
+                    <label className="text-sm font-medium text-slate-700">Length (m)<input type="number" min="0" step="0.1" value={length} onChange={(e) => setLength(e.target.value)} placeholder="e.g. 10" className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-slate-900 outline-none focus:border-emerald-600" /></label>
+                    <label className="text-sm font-medium text-slate-700">Width (m)<input type="number" min="0" step="0.1" value={width} onChange={(e) => setWidth(e.target.value)} placeholder="e.g. 5" className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-slate-900 outline-none focus:border-emerald-600" /></label>
+                    <label className="text-sm font-medium text-slate-700" title="Thickness/height in cm">Depth (cm)<input type="number" min="1" max="100" value={depthCm} onChange={(e) => setDepthCm(e.target.value)} placeholder="e.g. 5" className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-slate-900 outline-none focus:border-emerald-600" /></label>
+                  </div>
+                  <div className="mt-4"><label className="text-sm font-medium text-slate-700">Or enter total area (m²)<input type="number" min="0" step="0.1" value={area} onChange={(e) => setArea(e.target.value)} placeholder="Direct area input" className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-slate-900 outline-none focus:border-emerald-600" /></label><p className="mt-2 text-xs text-slate-500">Effective calculation area: <strong className="text-emerald-700">{computedArea ? `${computedArea.toFixed(2)} m²` : "—"}</strong></p></div>
+                  <Button onClick={startQuestionnaire} size="lg" className="mt-6 w-full bg-slate-950 text-white hover:bg-slate-900">Start project questionnaire <ArrowRight className="ml-2 h-4 w-4" /></Button>
+                </>
+              ) : null}
               {error && <p className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">{error}</p>}
             </div>
 
             {questionnaireOpen && (
               <div className="rounded-3xl border border-emerald-300 bg-emerald-950 p-7 text-white shadow-xl animate-[slideDown_.4s_ease-out]">
                 <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[.15em] text-emerald-200">
-                  <span>Question {questionIndex + 1} of {QUESTIONS.length}</span>
-                  <span>{Math.round(((questionIndex + 1) / QUESTIONS.length) * 100)}%</span>
+                  <span>Question {questionIndex + 1} of {visibleQuestions.length}</span>
+                  <span>{Math.round(((questionIndex + 1) / visibleQuestions.length) * 100)}%</span>
                 </div>
-                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-emerald-400 transition-all" style={{ width: `${((questionIndex + 1) / QUESTIONS.length) * 100}%` }} /></div>
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-emerald-400 transition-all" style={{ width: `${((questionIndex + 1) / visibleQuestions.length) * 100}%` }} /></div>
                 <h3 className="mt-6 text-2xl font-semibold">{question.title}</h3>
                 <p className="mt-2 text-sm leading-6 text-slate-300">{question.help}</p>
 
@@ -264,8 +288,8 @@ export default function EstimatorPage() {
                 )}
 
                 <div className="mt-6 flex justify-between gap-3">
-                  <button type="button" onClick={() => { if (questionIndex === 0) setQuestionnaireOpen(false); else setQuestionIndex((c) => c - 1); }} className="text-sm font-semibold text-slate-300 hover:text-white">Back</button>
-                  <button type="button" onClick={() => void nextQuestion()} className="inline-flex items-center rounded-xl bg-emerald-400 px-5 py-2.5 text-sm font-semibold text-slate-950 hover:bg-emerald-300">{questionIndex === QUESTIONS.length - 1 ? "Show my quotation" : "Continue"} <ArrowRight className="ml-2 h-4 w-4" /></button>
+                  <button type="button" onClick={() => { if (questionIndex === 0) { setQuestionnaireOpen(false); setEditingInputs(true); } else setQuestionIndex((c) => c - 1); }} className="text-sm font-semibold text-slate-300 hover:text-white">Back</button>
+                  <button type="button" onClick={() => void nextQuestion()} className="inline-flex items-center rounded-xl bg-emerald-400 px-5 py-2.5 text-sm font-semibold text-slate-950 hover:bg-emerald-300">{questionIndex === visibleQuestions.length - 1 ? "Show my quotation" : "Continue"} <ArrowRight className="ml-2 h-4 w-4" /></button>
                 </div>
               </div>
             )}
@@ -314,13 +338,13 @@ export default function EstimatorPage() {
                     <div className="rounded-2xl border border-slate-200 p-5">
                       <p className="text-sm font-semibold text-slate-800">Optional project services</p>
                       <div className="mt-3 grid gap-2">
-                        {services.map((s) => (
+                        {services.filter((s) => s.recommended || selectedServiceIds.includes(s.id)).slice(0, 6).map((s) => (
                           <button type="button" key={s.id} onClick={() => void toggleService(s.id)} className={`rounded-xl border p-3 text-left ${selectedServiceIds.includes(s.id) ? "border-emerald-600 bg-emerald-50" : "border-slate-200"}`}>
                             <div className="flex items-center justify-between text-sm font-semibold text-slate-900">
                               <span>{s.name}</span>
                               <span className="text-xs text-emerald-700">{formatPrice(s.price)}{s.pricingModel === "per_sqm" ? "/m²" : ""}</span>
                             </div>
-                            <p className="mt-1 text-xs text-slate-500">{s.description}</p>
+                            <p className="mt-1 text-xs text-slate-500">{s.recommendationReason || s.description}</p>
                           </button>
                         ))}
                       </div>

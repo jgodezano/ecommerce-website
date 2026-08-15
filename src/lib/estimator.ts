@@ -98,14 +98,49 @@ export function scoreMaterialMatch(material: ConfigurableMaterial, profile?: Par
   const reasons: string[] = [];
   let score = 0;
   const includes = (values: string[] | undefined, expected: string | undefined) => Boolean(expected && values?.some((value) => value === expected.toLowerCase() || value.includes(expected.toLowerCase())));
+  const hasAny = (values: string[], expected: string[]) => expected.some((item) => includes(values, item));
+  const rawProjectType = String(profile.projectType || "").toLowerCase();
+  const customProject = rawProjectType.replace(/^other:\s*/, "");
+  const projectType = rawProjectType.startsWith("other:") ? "other" : rawProjectType;
+  const useCase = String(profile.useCase || "").toLowerCase();
+  const isGeneralLandscape = ["landscaping", "garden"].includes(projectType);
+  const isTerrace = projectType.includes("terrace") || projectType.includes("patio") || customProject.includes("terrace") || customProject.includes("patio");
+  const isRepair = useCase === "repair-fix" || projectType.includes("wall") || projectType.includes("repair") || customProject.includes("wall") || customProject.includes("repair") || customProject.includes("fix");
+  const isNewBuild = useCase === "build-new" || useCase === "structural" || isTerrace;
+  const isDrainageProject = projectType === "drainage" || useCase === "drainage" || profile.drainagePriority === "high";
 
-  if (includes(projects, profile.projectType)) { score += 6; reasons.push("suits this project type"); }
-  if (includes(tags, profile.useCase)) { score += 5; reasons.push("fits the intended use"); }
+  if (includes(projects, projectType)) { score += 8; reasons.push("suits this project type"); }
+  if (includes(tags, useCase)) { score += 7; reasons.push("fits the intended use"); }
+
+  if (isGeneralLandscape && !isDrainageProject && hasAny(tags, ["drainage", "erosion-control"]) && !hasAny(tags, ["decorative", "landscaping", "planting-bed"])) {
+    score -= 14;
+  }
+  if (isGeneralLandscape && !isDrainageProject && hasAny(tags, ["heavy-load", "construction", "structural"]) && !hasAny(tags, ["landscaping", "decorative", "planting-bed"])) {
+    score -= 8;
+  }
+  if (isTerrace) {
+    if (hasAny(tags, ["terrace", "patio", "construction", "structural", "build-new", "walkway-base"]) || hasAny(projects, ["terrace", "pathway", "construction"])) {
+      score += 8;
+      reasons.push("supports terrace construction");
+    }
+    if (hasAny(tags, ["drainage"]) && profile.drainagePriority !== "high") score -= 7;
+  }
+  if (isRepair) {
+    if (hasAny(tags, ["repair", "masonry", "construction", "structural", "build-new"]) || hasAny(projects, ["construction", "wall", "repair"])) {
+      score += 7;
+      reasons.push("appropriate for repair or construction work");
+    }
+    if (hasAny(tags, ["decorative", "drainage"]) && !hasAny(tags, ["repair", "masonry", "construction"])) score -= 5;
+  }
+  if (isNewBuild && hasAny(tags, ["build-new", "construction", "structural", "terrace", "walkway-base"])) score += 5;
+
   if (profile.loadRequirement === "heavy") {
     if (material.heavyLoadSuitable) { score += 6; reasons.push("supports heavier traffic or loads"); } else score -= 8;
   } else if (material.usageRating === profile.loadRequirement) { score += 3; reasons.push(`${profile.loadRequirement}-use compatible`); }
   if (profile.drainagePriority === "high") {
     if (material.drainageSuitable) { score += 4; reasons.push("helps with drainage planning"); } else score -= 4;
+  } else if (profile.drainagePriority === "low" && material.drainageSuitable && hasAny(tags, ["drainage"]) && !hasAny(tags, ["decorative", "landscaping", "planting-bed"])) {
+    score -= 5;
   }
   if (profile.indoorOutdoor && material.indoorOutdoor && (material.indoorOutdoor === "both" || material.indoorOutdoor === profile.indoorOutdoor)) { score += 3; reasons.push(`appropriate for ${profile.indoorOutdoor} use`); }
   if (includes(tags, profile.style) || material.finishStyle?.toLowerCase().includes(profile.style?.toLowerCase() || "__never__")) { score += 3; reasons.push("matches the selected look"); }
