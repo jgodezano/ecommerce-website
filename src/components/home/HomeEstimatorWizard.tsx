@@ -269,11 +269,11 @@ export default function HomeEstimatorWizard() {
               {editingInputs && !questionnaireOpen && (
                 <>
                   <div className="mt-8 grid gap-4 sm:grid-cols-3">
-                    <label className="text-sm font-medium text-slate-200">Length (m)<input type="number" min="0" step="0.1" value={length} onChange={(event) => setLength(event.target.value)} onInput={(event) => setLength(event.currentTarget.value)} placeholder="e.g. 10" className="mt-2 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-3 text-white outline-none placeholder:text-slate-500 focus:border-emerald-300" /></label>
-                    <label className="text-sm font-medium text-slate-200">Width (m)<input type="number" min="0" step="0.1" value={width} onChange={(event) => setWidth(event.target.value)} onInput={(event) => setWidth(event.currentTarget.value)} placeholder="e.g. 5" className="mt-2 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-3 text-white outline-none placeholder:text-slate-500 focus:border-emerald-300" /></label>
-                    <label className="text-sm font-medium text-slate-200" title="Application depth or thickness (height)">Depth / Height (cm)<input type="number" min="1" max="100" value={depthCm} onChange={(event) => setDepthCm(event.target.value)} onInput={(event) => setDepthCm(event.currentTarget.value)} placeholder="e.g. 5" className="mt-2 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-3 text-white outline-none placeholder:text-slate-500 focus:border-emerald-300" /></label>
+                    <label className="text-sm font-medium text-slate-200">Length (m)<input type="number" min="0" step="0.1" value={length} onChange={(event) => setLength(event.target.value)} placeholder="e.g. 10" className="mt-2 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-3 text-white outline-none placeholder:text-slate-500 focus:border-emerald-300" /></label>
+                    <label className="text-sm font-medium text-slate-200">Width (m)<input type="number" min="0" step="0.1" value={width} onChange={(event) => setWidth(event.target.value)} placeholder="e.g. 5" className="mt-2 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-3 text-white outline-none placeholder:text-slate-500 focus:border-emerald-300" /></label>
+                    <label className="text-sm font-medium text-slate-200" title="Application depth or thickness (height)">Depth / Height (cm)<input type="number" min="1" max="100" value={depthCm} onChange={(event) => setDepthCm(event.target.value)} placeholder="e.g. 5" className="mt-2 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-3 text-white outline-none placeholder:text-slate-500 focus:border-emerald-300" /></label>
                   </div>
-                  <div className="mt-4"><label className="text-sm font-medium text-slate-200">Or enter total area (m²)<input type="number" min="0" step="0.1" value={area} onChange={(event) => setArea(event.target.value)} onInput={(event) => setArea(event.currentTarget.value)} placeholder="Direct area input" className="mt-2 w-full rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-emerald-300" /></label><p className="mt-2 text-xs text-slate-400">Effective calculation area (factoring depth): <strong className="text-emerald-300">{computedArea ? `${computedArea.toFixed(2)} m²` : "—"}</strong></p></div>
+                  <div className="mt-4"><label className="text-sm font-medium text-slate-200">Or enter total area (m²)<input type="number" min="0" step="0.1" value={area} onChange={(event) => setArea(event.target.value)} placeholder="Direct area input" className="mt-2 w-full rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-emerald-300" /></label><p className="mt-2 text-xs text-slate-400">Effective calculation area (factoring depth): <strong className="text-emerald-300">{computedArea > 0 ? `${computedArea.toFixed(2)} m²` : "—"}</strong></p></div>
                   <Button onClick={startQuestionnaire} disabled={loading} size="lg" className="mt-7 w-full bg-emerald-400 text-slate-950 hover:bg-emerald-300">Calculate requirements <ArrowRight className="ml-2 h-4 w-4" /></Button>
                 </>
               )}
@@ -290,6 +290,8 @@ export default function HomeEstimatorWizard() {
                   </div>
                   <h3 className="mt-6 text-xl font-semibold">{question.title}</h3>
                   <p className="mt-2 text-sm leading-6 text-slate-300">{question.help}</p>
+
+                  {error && <p className="mt-4 rounded-xl bg-red-500/20 border border-red-500/50 p-3 text-sm text-red-200 animate-pulse">{error}</p>}
                   
                   <div className="mt-5 grid gap-2">
                     {question.options.map((option) => (

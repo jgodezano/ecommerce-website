@@ -1,117 +1,260 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Check, CheckCircle2, CircleHelp, Loader2, MapPin, PackageCheck, Ruler, Sparkles, Truck, Wrench } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { useCustomerAuth } from "@/context/CustomerAuthContext";
 import { formatPrice } from "@/lib/utils";
+import dynamic from "next/dynamic";
 
-type ProjectProfile = {
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  unit: string;
+  packageSize: string;
+  coveragePerUnit: number;
+  image?: string;
+}
+
+interface Recommendation extends Product {
+  estimate: {
+    recommendedQuantity: number;
+    materialTotal: number;
+    wastageAllowance: number;
+  };
+  wastagePercent: number;
+  systemRole: string;
+  purpose: string;
+  matchScore: number;
+}
+
+interface Service {
+  id: string;
+  name: string;
+  price: number;
+  unit: string;
+}
+
+interface DeliveryZone {
+  id: string;
+  name: string;
+  fee: number;
+}
+
+interface ProjectProfile {
   projectType: string;
   useCase: string;
-  loadRequirement: "light" | "medium" | "heavy";
-  surfaceType: "soil" | "concrete" | "existing-gravel" | "mixed";
-  drainagePriority: "low" | "medium" | "high";
-  style: string;
-  colorPreference: string;
-  maintenance: "low" | "medium" | "high";
-  indoorOutdoor: "indoor" | "outdoor" | "both";
-  budget: "economy" | "standard" | "premium";
-  budgetTarget?: number;
   constructionStage: string;
   constructionMethod: string;
+  loadRequirement: string;
+  surfaceType: string;
+  drainagePriority: string;
+  style: string;
+  colorPreference: string;
+  maintenance: string;
+  indoorOutdoor: string;
+  budget: string;
+  budgetTarget?: number;
   customProject?: string;
+}
+
+const INITIAL_PROFILE: ProjectProfile = {
+  projectType: "",
+  useCase: "",
+  constructionStage: "",
+  constructionMethod: "",
+  loadRequirement: "",
+  surfaceType: "",
+  drainagePriority: "",
+  style: "",
+  colorPreference: "",
+  maintenance: "",
+  indoorOutdoor: "outdoor",
+  budget: "standard",
 };
 
-type Recommendation = { id: string; name: string; description: string; image: string; unit: string; packageSize?: string; price: number; coveragePerUnit: number; wastagePercent: number; systemRole?: string; systemRequired?: boolean; purpose?: string; matchReasons?: string[]; estimate: { recommendedQuantity: number; materialTotal: number; baseQuantity: number } };
-type Service = { id: string; name: string; description: string; pricingModel: "flat" | "per_sqm"; price: number; unit: string; total?: number; recommended?: boolean; recommendationReason?: string; selected?: boolean };
-type DeliveryZone = { id: string; name: string; fee: number; min_order_for_free?: number; estimated_days?: string };
-type Question = { key: QuestionKey; title: string; help: string; options: { value: string; label: string; description: string }[]; when?: (profile: ProjectProfile) => boolean };
 type QuestionKey = keyof ProjectProfile;
-type FollowUpAction = "official_review" | "site_visit" | "quote_list";
+interface Question {
+  key: QuestionKey;
+  label: string;
+  description?: string;
+  options: { value: string; label: string; description?: string }[];
+  when?: (profile: ProjectProfile) => boolean;
+}
 
-const INITIAL_PROFILE: ProjectProfile = { projectType: "", useCase: "", loadRequirement: "medium", surfaceType: "soil", drainagePriority: "medium", style: "", colorPreference: "any", maintenance: "medium", indoorOutdoor: "outdoor", budget: "standard", constructionStage: "", constructionMethod: "", customProject: "" };
-const STYLE_GUIDANCE: Record<string, string> = {
-  natural: "Natural direction: combine earthy tones, irregular textures, and planting-friendly materials. Use this as a starting style, then confirm the final finish on site.",
-  modern: "Modern direction: prioritize clean edges, consistent sizing, and neutral or contrasting finishes for a structured look.",
-  rustic: "Rustic direction: prioritize warm earth tones, textured surfaces, and materials with natural variation.",
-  tropical: "Tropical direction: prioritize durable outdoor finishes, warm accents, and planting-friendly surfaces.",
-  clean: "Clean and simple direction: prioritize consistent sizing, restrained colors, and low-maintenance finishes.",
-};
 const QUESTIONS: Question[] = [
-  { key: "projectType", title: "What are you building?", help: "This helps us distinguish between decorative, access, walls, and structural needs.", options: [{ value: "landscaping", label: "Landscape feature", description: "Garden beds, borders, accents" }, { value: "garden", label: "Garden area", description: "Planting beds and outdoor spaces" }, { value: "pathway", label: "Walkway or patio", description: "Pedestrian paths and sitting areas" }, { value: "driveway", label: "Driveway or parking", description: "Vehicle access and parking" }, { value: "drainage", label: "Drainage or erosion", description: "Runoff, slopes, and water control" }, { value: "construction", label: "Construction base", description: "A stable base or fill application" }, { value: "other", label: "Other / Custom project", description: "Fixing walls, retaining structures, or custom builds" }] },
-  { key: "useCase", title: "What will the material do?", help: "Choose the main job so we can prioritize the right performance characteristics.", options: [{ value: "repair-fix", label: "Repair or fix existing", description: "Fixing walls, filling cracks, or refreshing an area" }, { value: "build-new", label: "Build something new", description: "Create a new feature, wall, or structure from scratch" }, { value: "decorative", label: "Add decoration / finish", description: "Improve visual appeal, color, and texture" }, { value: "structural", label: "Provide structural support", description: "Base layers, retaining weight, or load-bearing" }, { value: "drainage", label: "Manage drainage or erosion", description: "Water control, runoff, and soil protection" }, { value: "maintenance", label: "Reduce maintenance", description: "Covering soil, suppressing weeds, or easy-care surfaces" }] },
-  { key: "loadRequirement", title: "How much traffic or load will it receive?", help: "A driveway needs a different material profile than a decorative garden border.", options: [{ value: "light", label: "Light use", description: "Decorative areas or occasional walking" }, { value: "medium", label: "Regular foot traffic", description: "Paths, patios, and everyday use" }, { value: "heavy", label: "Vehicles or heavy loads", description: "Driveways, parking, or equipment" }] },
-  { key: "surfaceType", title: "What surface are you starting from?", help: "The existing base affects preparation and the material system we recommend.", options: [{ value: "soil", label: "Soil or garden bed", description: "Natural ground or planting soil" }, { value: "concrete", label: "Concrete or slab", description: "An existing hard surface" }, { value: "existing-gravel", label: "Existing gravel", description: "A previous aggregate base" }, { value: "mixed", label: "Mixed or unsure", description: "Different surfaces across the project" }] },
-  { key: "drainagePriority", title: "How important is drainage?", help: "Tell us whether managing rainwater is a key part of the project.", options: [{ value: "low", label: "Not a major concern", description: "The area already drains well" }, { value: "medium", label: "Some attention needed", description: "We want a practical solution" }, { value: "high", label: "High priority", description: "Water pooling or runoff is a concern" }] },
-  { key: "style", title: "Which look are you aiming for?", help: "Style helps us rank materials with a finish and texture that fit the space.", options: [{ value: "natural", label: "Natural", description: "Organic, earthy, and relaxed" }, { value: "modern", label: "Modern", description: "Clean lines and contemporary contrast" }, { value: "rustic", label: "Rustic", description: "Warm, textured, and traditional" }, { value: "tropical", label: "Tropical", description: "Lush, bright, and garden-focused" }, { value: "clean", label: "Clean and simple", description: "Neat, minimal, and easy to maintain" }] },
-  { key: "colorPreference", title: "Do you have a color preference?", help: "Choose any if you would rather let the available inventory guide you.", options: [{ value: "any", label: "Open to options", description: "Show the best available matches" }, { value: "neutral", label: "Neutral", description: "Soft gray, beige, or balanced tones" }, { value: "white", label: "Light or white", description: "Bright, clean, and reflective" }, { value: "dark", label: "Dark or charcoal", description: "Strong contrast and modern depth" }, { value: "warm", label: "Warm earth tones", description: "Tan, brown, terracotta, or golden" }, { value: "mixed", label: "Mixed colors", description: "Natural variation and visual texture" }] },
-  { key: "maintenance", title: "How much maintenance do you prefer?", help: "This helps balance appearance with long-term upkeep.", options: [{ value: "low", label: "Keep it low", description: "Minimal refreshing and maintenance" }, { value: "medium", label: "Some upkeep is fine", description: "A balance of appearance and effort" }, { value: "high", label: "I enjoy maintaining it", description: "Prioritize detail and visual control" }] },
-  { key: "indoorOutdoor", title: "Where will the material be used?", help: "Some materials are better suited to weather exposure or indoor display.", options: [{ value: "outdoor", label: "Outdoor", description: "Garden, yard, path, or driveway" }, { value: "indoor", label: "Indoor", description: "Interior feature or display" }, { value: "both", label: "Indoor and outdoor", description: "I want a flexible material" }] },
-  { key: "budget", title: "What is your starting budget?", help: "This filters the ranking without preventing you from seeing other available options.", options: [{ value: "economy", label: "Economy", description: "Prioritize practical value" }, { value: "standard", label: "Standard", description: "Balance cost and finish" }, { value: "premium", label: "Premium", description: "Prioritize finish and presentation" }] },
-  { key: "constructionStage", title: "What stage is the project at?", help: "This helps us separate a new build from a repair or improvement.", when: (profile) => ["terrace", "wall", "construction", "other"].includes(profile.projectType) || ["repair-fix", "build-new", "structural"].includes(profile.useCase), options: [{ value: "new", label: "New construction", description: "Starting the structure or feature from scratch" }, { value: "repair", label: "Repair existing", description: "Fixing damage, cracks, or a failed section" }, { value: "improvement", label: "Improve or extend", description: "Upgrading or adding to something already there" }] },
-  { key: "constructionMethod", title: "What kind of construction or finish do you need?", help: "If you are unsure, choose the option closest to your idea and we will suggest a practical starting system.", when: (profile) => ["terrace", "wall", "construction"].includes(profile.projectType) || ["build-new", "structural"].includes(profile.useCase), options: [{ value: "foundation", label: "Foundation or concrete base", description: "Footings, slabs, or a stable supporting base" }, { value: "masonry", label: "Wall, block, or retaining work", description: "Masonry, partitions, retaining walls, or repairs" }, { value: "surface", label: "Finished surface or paving", description: "The visible floor, patio, terrace, or walkway finish" }, { value: "unsure", label: "I am not sure", description: "Let the recommendation guide my starting point" }] },
+  {
+    key: "projectType",
+    label: "What are you building?",
+    options: [
+      { value: "driveway", label: "Driveway or Parking", description: "Heavy load-bearing surface for vehicles" },
+      { value: "pathway", label: "Walkway or Path", description: "Pedestrian traffic, garden paths" },
+      { value: "terrace", label: "Terrace or Patio", description: "Outdoor living space, seating area" },
+      { value: "landscape", label: "Landscape feature", description: "Decorative rocks, garden accents" },
+      { value: "wall", label: "Retaining Wall", description: "Structural wall for soil or decoration" },
+      { value: "other", label: "Other / Custom build", description: "Tell us about your specific project" },
+    ],
+  },
+  {
+    key: "useCase",
+    label: "What is the main need?",
+    options: [
+      { value: "build-new", label: "Build something new", description: "Starting from scratch" },
+      { value: "repair", label: "Repair or fix existing", description: "Maintenance or partial replacement" },
+      { value: "decoration", label: "Additional decoration", description: "Enhancing the look of a project" },
+    ],
+  },
+  {
+    key: "constructionStage",
+    label: "What is the current stage?",
+    options: [
+      { value: "planning", label: "Planning & Design", description: "Budgeting and choosing materials" },
+      { value: "new", label: "New construction", description: "Foundation is ready or starting soon" },
+      { value: "renovation", label: "Renovation", description: "Replacing old materials" },
+    ],
+  },
+  {
+    key: "constructionMethod",
+    label: "Construction method preference?",
+    when: (p) => ["driveway", "terrace", "wall"].includes(p.projectType),
+    options: [
+      { value: "mortar", label: "Mortar / Wet set", description: "Materials set in cement for stability" },
+      { value: "surface", label: "Loose / Dry set", description: "Compacted base with aggregate finish" },
+      { value: "structure", label: "Full structural", description: "Deep foundation and masonry" },
+    ],
+  },
+  {
+    key: "loadRequirement",
+    label: "Expected traffic load?",
+    options: [
+      { value: "heavy", label: "Heavy (Vehicles)", description: "Cars, trucks, heavy equipment" },
+      { value: "medium", label: "Medium (Pedestrian)", description: "High-traffic walkways, public spaces" },
+      { value: "light", label: "Light (Decorative)", description: "Private gardens, low-traffic areas" },
+    ],
+  },
+  {
+    key: "surfaceType",
+    label: "Existing surface condition?",
+    options: [
+      { value: "soil", label: "Raw soil / Earth", description: "Requires full excavation and base" },
+      { value: "concrete", label: "Existing concrete", description: "Can lay materials on top" },
+      { value: "gravel", label: "Old gravel / Base", description: "Requires leveling and topping" },
+    ],
+  },
+  {
+    key: "drainagePriority",
+    label: "Drainage priority?",
+    options: [
+      { value: "high", label: "High priority", description: "Area prone to water pooling" },
+      { value: "low", label: "Standard / Low", description: "Good natural drainage" },
+    ],
+  },
+  {
+    key: "style",
+    label: "Desired style?",
+    options: [
+      { value: "modern", label: "Modern & Clean", description: "Uniform colors, sharp edges" },
+      { value: "rustic", label: "Rustic & Natural", description: "Irregular shapes, earth tones" },
+      { value: "elegant", label: "Elegant / Luxury", description: "Premium finish, polished look" },
+    ],
+  },
+  {
+    key: "colorPreference",
+    label: "Color preference?",
+    options: [
+      { value: "neutral", label: "Neutral (Grey/White)", description: "Versatile and timeless" },
+      { value: "warm", label: "Warm (Beige/Tan/Red)", description: "Inviting and natural" },
+      { value: "dark", label: "Dark (Charcoal/Black)", description: "Bold and contemporary" },
+    ],
+  },
+  {
+    key: "maintenance",
+    label: "Maintenance preference?",
+    options: [
+      { value: "low", label: "Low maintenance", description: "Easy to clean, durable" },
+      { value: "standard", label: "Standard", description: "Occasional cleaning/weeding" },
+    ],
+  },
+  {
+    key: "indoorOutdoor",
+    label: "Project location?",
+    options: [
+      { value: "outdoor", label: "Outdoor", description: "Exposed to weather" },
+      { value: "indoor", label: "Indoor / Covered", description: "Interior floors or features" },
+    ],
+  },
+  {
+    key: "budget",
+    label: "Project budget tier?",
+    options: [
+      { value: "economy", label: "Economy", description: "Practical and cost-effective" },
+      { value: "standard", label: "Standard", description: "Quality materials, fair price" },
+      { value: "premium", label: "Premium", description: "Best-in-class materials" },
+    ],
+  },
 ];
-
-const QUESTION_FLOW_KEYS: QuestionKey[] = ["projectType", "useCase", "constructionStage", "constructionMethod", "loadRequirement", "surfaceType", "drainagePriority", "style", "colorPreference", "maintenance", "indoorOutdoor", "budget"];
 
 const DISCLAIMER = "This quotation is an estimate based on the information provided. Final quantity, delivery charges, material requirements, and pricing may be confirmed by our team after reviewing your project.";
 
-export default function EstimatorPage() {
+type FollowUpAction = "official_review" | "site_visit" | "quote_list";
+
+function EstimatorContent() {
   const router = useRouter();
-  const { user, isAuthenticated } = useCustomerAuth();
-  const [length, setLength] = useState(""); const [width, setWidth] = useState(""); const [area, setArea] = useState("");
+  const searchParams = useSearchParams();
+  const { isAuthenticated } = useCustomerAuth();
+  
+  const [length, setLength] = useState(""); 
+  const [width, setWidth] = useState(""); 
+  const [area, setArea] = useState("");
   const [depthCm, setDepthCm] = useState("5");
   const [targetBudget, setTargetBudget] = useState("");
   const [customProject, setCustomProject] = useState("");
-  const [deliveryCity, setDeliveryCity] = useState(""); const [deliveryZoneId, setDeliveryZoneId] = useState(""); const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]); const [timeline, setTimeline] = useState(""); const [notes, setNotes] = useState("");
-  const [profile, setProfile] = useState<ProjectProfile>(INITIAL_PROFILE); const [questionnaireOpen, setQuestionnaireOpen] = useState(false); const [editingInputs, setEditingInputs] = useState(true); const [questionIndex, setQuestionIndex] = useState(0);
-  const [recommendations, setRecommendations] = useState<Recommendation[]>([]); const [services, setServices] = useState<Service[]>([]); const [selectedProductId, setSelectedProductId] = useState(""); const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]); const [estimate, setEstimate] = useState<any>(null);
-  const [loading, setLoading] = useState(false); const [submitting, setSubmitting] = useState(false); const [submittingAction, setSubmittingAction] = useState<FollowUpAction | null>(null); const [message, setMessage] = useState(""); const [error, setError] = useState(""); const [handoffPending, setHandoffPending] = useState(false); const [submittedQuoteId, setSubmittedQuoteId] = useState(""); const [submittedQuoteNumber, setSubmittedQuoteNumber] = useState("");
+  const [deliveryZoneId, setDeliveryZoneId] = useState(""); 
+  const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]); 
+  const [profile, setProfile] = useState<ProjectProfile>(INITIAL_PROFILE);
+  const [questionnaireOpen, setQuestionnaireOpen] = useState(false);
+  const [questionIndex, setQuestionIndex] = useState(0);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [selectedProductId, setSelectedProductId] = useState("");
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+  const [estimate, setEstimate] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [submittingAction, setSubmittingAction] = useState<FollowUpAction | null>(null);
+  const [error, setError] = useState("");
+  const [handoffPending, setHandoffPending] = useState(false);
 
   useEffect(() => {
-    fetch("/api/delivery").then((response) => response.json()).then((data) => setDeliveryZones(data.zones || [])).catch(() => {});
-    const query = new URLSearchParams(window.location.search);
-    if (query.get("area")) setArea(query.get("area") || "");
-    if (query.get("depth")) setDepthCm(query.get("depth") || "5");
-    if (query.get("targetBudget")) setTargetBudget(query.get("targetBudget") || "");
-    if (query.get("material")) setSelectedProductId(query.get("material") || "");
-    if (query.get("zone")) setDeliveryZoneId(query.get("zone") || "");
-    if (query.get("services")) setSelectedServiceIds((query.get("services") || "").split(",").filter(Boolean));
-    const profileParam = query.get("profile");
+    fetch("/api/delivery").then((res) => res.json()).then((data) => setDeliveryZones(data.zones || [])).catch(() => {});
+    
+    const urlArea = searchParams.get("area");
+    const urlDepth = searchParams.get("depth");
+    const urlBudget = searchParams.get("targetBudget");
+    const urlMaterial = searchParams.get("material");
+    const urlZone = searchParams.get("zone");
+    const urlServices = searchParams.get("services");
+    const profileParam = searchParams.get("profile");
     const pendingParam = !profileParam ? sessionStorage.getItem("pendingEstimate") : null;
+
+    if (urlArea) setArea(urlArea);
+    if (urlDepth) setDepthCm(urlDepth);
+    if (urlBudget) setTargetBudget(urlBudget);
+    if (urlMaterial) setSelectedProductId(urlMaterial);
+    if (urlZone) setDeliveryZoneId(urlZone);
+    if (urlServices) setSelectedServiceIds(urlServices.split(",").filter(Boolean));
+
     if (profileParam || pendingParam) {
       try {
-        const transferred = profileParam ? JSON.parse(profileParam) as Partial<ProjectProfile> : (JSON.parse(pendingParam || "{}")?.projectProfile as Partial<ProjectProfile>);
-        const restored = { ...INITIAL_PROFILE, ...transferred };
-        const pending = pendingParam ? JSON.parse(pendingParam) : null;
-        const restoredDepth = String(profileParam ? (query.get("depth") || "5") : (pending?.depthCm || "5"));
-        const restoredArea = Number(profileParam ? (query.get("area") || "0") : (pending?.areaSqm || 0));
-        const depthFactor = (Number(restoredDepth) || 5) / 5;
-        setArea(restoredArea > 0 ? String(restoredArea / depthFactor) : "");
-        setDepthCm(restoredDepth);
-        setProfile(restored);
-        setCustomProject(String(transferred.customProject || ""));
-        if (pending?.selectedProductId) setSelectedProductId(String(pending.selectedProductId));
-        if (pending?.selectedServiceIds) setSelectedServiceIds(pending.selectedServiceIds.map(String));
-        if (pending?.deliveryCity) setDeliveryCity(String(pending.deliveryCity));
-        if (pending?.deliveryZoneId) setDeliveryZoneId(String(pending.deliveryZoneId));
-        if (pending?.timeline) setTimeline(String(pending.timeline));
-        if (pending?.notes) setNotes(String(pending.notes));
-        if (pending?.targetBudget) setTargetBudget(String(pending.targetBudget));
-        setEditingInputs(false);
-        setQuestionnaireOpen(false);
-        setHandoffPending(true);
-        if (pendingParam) {
-          sessionStorage.removeItem("pendingEstimate");
-          setMessage("Your saved estimate was restored. Review the details below, then choose official review or a site visit.");
+        const transferred = profileParam ? JSON.parse(profileParam) : (JSON.parse(pendingParam || "{}")?.projectProfile);
+        if (transferred) {
+          setProfile({ ...INITIAL_PROFILE, ...transferred });
+          setHandoffPending(true);
         }
-      } catch {
-        setError("The transferred project details could not be read. You can enter them again below.");
-      }
+      } catch (err) {}
     }
-  }, []);
+  }, [searchParams]);
 
   const computedArea = useMemo(() => {
     const direct = Number(area);
@@ -120,21 +263,10 @@ export default function EstimatorPage() {
     return base > 0 ? base * depthFactor : 0;
   }, [area, length, width, depthCm]);
 
-  const selectedRecommendation = recommendations.find((item) => item.id === selectedProductId) || recommendations[0];
-  const currentTotals = estimate?.totals || { materialTotal: selectedRecommendation?.estimate.materialTotal || 0, deliveryFee: 0, serviceTotal: 0, otherCharges: 0, discount: 0, total: selectedRecommendation?.estimate.materialTotal || 0 };
-  const orderedQuestions = QUESTION_FLOW_KEYS.map((key) => QUESTIONS.find((item) => item.key === key)).filter((item): item is Question => Boolean(item));
-  const visibleQuestions = orderedQuestions.filter((item) => !item.when || item.when(profile));
-  const projectTypeLabel = QUESTIONS[0].options.find((option) => option.value === profile.projectType)?.label || profile.projectType;
-  const useCaseLabel = QUESTIONS[1].options.find((option) => option.value === profile.useCase)?.label || profile.useCase;
-  const constructionStageLabel = QUESTIONS.find((item) => item.key === "constructionStage")?.options.find((option) => option.value === profile.constructionStage)?.label || profile.constructionStage;
-  const constructionMethodLabel = QUESTIONS.find((item) => item.key === "constructionMethod")?.options.find((option) => option.value === profile.constructionMethod)?.label || profile.constructionMethod;
-  const styleGuidance = STYLE_GUIDANCE[profile.style] || "Style direction: we will use your answers and available inventory as a practical starting point. Final appearance should be confirmed with a sample or site review.";
-  const activeStep = questionnaireOpen ? 2 : estimate ? 3 : 1;
-
   const calculate = async (nextProductId = selectedProductId, nextServiceIds = selectedServiceIds, nextProfile = profile) => {
     setError("");
     if (!computedArea || computedArea <= 0) {
-      setError("Enter a valid area, or enter both length and width in meters.");
+      setError("Enter a valid area.");
       return null;
     }
     setLoading(true);
@@ -148,18 +280,19 @@ export default function EstimatorPage() {
           selectedProductId: nextProductId,
           deliveryZoneId,
           targetBudget: Number(targetBudget || 0),
-          projectProfile: { ...nextProfile, budgetTarget: Number(targetBudget || 0) || undefined, projectType: nextProfile.projectType === "other" && customProject ? `other: ${customProject}` : nextProfile.projectType }
+          projectProfile: { ...nextProfile, customProject }
         }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Unable to calculate estimate");
       setRecommendations(data.recommendations || []);
       setServices(data.services || []);
       setEstimate(data);
-      if (data.selectedProductId && !nextProductId) setSelectedProductId(data.selectedProductId);
+      if (data.recommendations?.length > 0 && !nextProductId) {
+        setSelectedProductId(data.recommendations[0].id);
+      }
       return data;
     } catch (err: any) {
-      setError(err.message || "Unable to calculate estimate");
+      setError("Calculation failed");
       return null;
     } finally {
       setLoading(false);
@@ -172,316 +305,273 @@ export default function EstimatorPage() {
   }, [handoffPending, computedArea, profile.projectType]);
 
   const startQuestionnaire = () => {
-    setError("");
-    if (!computedArea || computedArea <= 0) {
-      setError("Enter your project dimensions first, then we will ask a few questions to match materials.");
-      return;
-    }
-    setEditingInputs(false);
+    if (!computedArea || computedArea <= 0) return;
     setQuestionnaireOpen(true);
     setQuestionIndex(0);
   };
 
+  const visibleQuestions = QUESTIONS.filter(q => !q.when || q.when(profile));
+
   const chooseAnswer = async (value: string) => {
     const question = visibleQuestions[questionIndex];
-    const updated = { ...profile, [question.key]: value };
-    setProfile(updated);
-    setError("");
-
-    if (value === "other" && question.key === "projectType") {
-      return;
-    }
+    const newProfile = { ...profile, [question.key]: value };
+    setProfile(newProfile);
 
     if (questionIndex < visibleQuestions.length - 1) {
-      setQuestionIndex((current) => current + 1);
+      setQuestionIndex(questionIndex + 1);
     } else {
       setQuestionnaireOpen(false);
-      setEditingInputs(false);
-      await calculate(selectedProductId, selectedServiceIds, updated);
+      await calculate(selectedProductId, selectedServiceIds, newProfile);
     }
   };
 
-  const nextQuestion = async () => {
-    const question = visibleQuestions[questionIndex];
-    if (!profile[question.key]) {
-      setError("Choose an answer so we can make a useful recommendation.");
-      return;
-    }
-    if (question.key === "projectType" && profile.projectType === "other" && !customProject) {
-      setError("Please specify what you are building.");
-      return;
-    }
-    setError("");
-    if (questionIndex < visibleQuestions.length - 1) {
-      setQuestionIndex((current) => current + 1);
-      return;
-    }
-    setQuestionnaireOpen(false);
-    setEditingInputs(false);
-    await calculate(selectedProductId, selectedServiceIds, profile);
-  };
-
-  const chooseMaterial = async (id: string) => { setSelectedProductId(id); await calculate(id, selectedServiceIds, profile); };
-  const toggleService = async (id: string) => { const next = selectedServiceIds.includes(id) ? selectedServiceIds.filter((item) => item !== id) : [...selectedServiceIds, id]; setSelectedServiceIds(next); await calculate(selectedProductId, next, profile); };
-
-  const requestQuotation = async (action: FollowUpAction = "official_review") => {
-    if (!selectedRecommendation || !computedArea) { setError("Complete the project questions and select a material first."); return; }
+  const handleFollowUp = async (action: FollowUpAction) => {
     if (!isAuthenticated) {
-      const resumePath = `/estimator?area=${encodeURIComponent(computedArea.toString())}&depth=${encodeURIComponent(depthCm || "5")}${selectedRecommendation ? `&material=${encodeURIComponent(selectedRecommendation.id)}` : ""}${deliveryZoneId ? `&zone=${encodeURIComponent(deliveryZoneId)}` : ""}${targetBudget ? `&targetBudget=${encodeURIComponent(targetBudget)}` : ""}${selectedServiceIds.length ? `&services=${encodeURIComponent(selectedServiceIds.join(","))}` : ""}&profile=${encodeURIComponent(JSON.stringify({ ...profile, customProject }))}`;
-      sessionStorage.setItem("pendingEstimate", JSON.stringify({ areaSqm: computedArea, depthCm, targetBudget: Number(targetBudget || 0) || null, selectedProductId, selectedServiceIds, projectProfile: { ...profile, budgetTarget: Number(targetBudget || 0) || undefined }, deliveryCity, deliveryZoneId, timeline, notes, followUpAction: action }));
-      router.push(`/login?redirect=${encodeURIComponent(resumePath)}`);
+      sessionStorage.setItem("pendingEstimate", JSON.stringify({
+        areaSqm: computedArea,
+        depthCm,
+        selectedProductId,
+        selectedServiceIds,
+        deliveryZoneId,
+        targetBudget,
+        projectProfile: { ...profile, customProject }
+      }));
+      router.push("/login?redirect=/estimator");
       return;
     }
-    setSubmitting(true); setSubmittingAction(action); setError("");
+
+    setSubmittingAction(action);
     try {
       const response = await fetch("/api/quotes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          items: recommendations.map((item) => ({ productId: item.id, name: item.name, quantity: item.estimate.recommendedQuantity, unit: item.unit, packageSize: item.packageSize, estimatedUnitPrice: item.price, totalPrice: item.estimate.materialTotal, coveragePerUnit: item.coveragePerUnit, wastagePercent: item.wastagePercent, systemRole: item.systemRole, purpose: item.purpose })),
+          action,
           areaSqm: computedArea,
-          selectedMaterialId: selectedRecommendation.id,
-          services: estimate?.services || [],
-          materialTotal: currentTotals.materialTotal,
-          deliveryFee: currentTotals.deliveryFee,
-          serviceTotal: currentTotals.serviceTotal,
-          otherCharges: currentTotals.otherCharges,
-          discount: currentTotals.discount,
-          total: currentTotals.total,
-          targetBudget: Number(targetBudget || 0) || null,
-          notes: action === "site_visit" ? `[SITE VISIT REQUESTED] ${notes}`.trim() : action === "quote_list" ? `[QUOTE LIST] ${notes}`.trim() : notes,
-          projectType: profile.projectType === "other" && customProject ? `other: ${customProject}` : profile.projectType,
-          deliveryCity,
-          timeline: timeline || estimate?.estimatedDuration?.label || "",
-          projectLocation: deliveryCity,
+          depthCm,
+          selectedProductId,
+          selectedServiceIds,
           deliveryZoneId,
-          projectDetails: { projectProfile: { ...profile, budgetTarget: Number(targetBudget || 0) || undefined }, depthCm, useCase: profile.useCase, loadRequirement: profile.loadRequirement, surfaceType: profile.surfaceType, drainagePriority: profile.drainagePriority, style: profile.style, colorPreference: profile.colorPreference, maintenance: profile.maintenance, indoorOutdoor: profile.indoorOutdoor, budget: profile.budget, budgetTarget: Number(targetBudget || 0) || null, estimatedDuration: estimate?.estimatedDuration || null, followUpAction: action },
-          customerName: [user?.firstName, user?.lastName].filter(Boolean).join(" "),
-          customerEmail: user?.email || "",
-          customerPhone: user?.phone || "",
-          estimateDisclaimer: DISCLAIMER
-        })
+          projectProfile: { ...profile, customProject }
+        }),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Failed to submit quotation");
-      setSubmittedQuoteId(data.quoteId || "");
-      setSubmittedQuoteNumber(data.quoteNumber || "");
-      setMessage(action === "site_visit" ? `Site visit request ${data.quoteNumber} submitted. Our team will confirm the visit details.` : action === "quote_list" ? `Materials saved to quote list ${data.quoteNumber}. Opening your customer workspace…` : `Quotation ${data.quoteNumber} submitted for official review. Our team will review it and contact you.`);
-      if (action === "quote_list") router.push("/account/quotes");
-    } catch (err: any) {
-      setError(err.message || "Failed to submit quotation");
+      if (!response.ok) throw new Error();
+      router.push("/account/quotes");
+    } catch (err) {
+      setError("Submission failed");
     } finally {
-      setSubmitting(false);
       setSubmittingAction(null);
     }
   };
 
-  const question = visibleQuestions[questionIndex] || visibleQuestions[0];
   return (
-    <main className="min-h-screen bg-stone-50">
-      <section className="bg-slate-950 text-white">
-        <div className="container-custom py-14 sm:py-20">
-          <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[.18em] text-emerald-200"><Sparkles className="h-4 w-4" /> Guided project estimator</div>
-            <h1 className="mt-5 text-4xl font-semibold tracking-[-.04em] sm:text-6xl">Answer a few project questions. Get a smarter material shortlist.</h1>
-            <p className="mt-5 max-w-2xl text-base leading-8 text-slate-300 sm:text-lg">We use your area, depth, intended use, traffic, drainage, style, maintenance, and budget to rank materials that are active and available in your inventory.</p>
+    <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-8">
+          <div className="flex items-center gap-2 text-accent-600 font-semibold mb-2">
+            <Sparkles className="w-5 h-5" />
+            <span className="uppercase tracking-wider text-sm">Guided project estimator</span>
           </div>
-          <div className="mt-10 grid gap-3 sm:grid-cols-3">
-            {[[1, "Project area & depth"], [2, "Project questions"], [3, "Material shortlist"]].map(([number, label]) => (
-              <div key={number} className={`flex items-center gap-3 rounded-2xl border px-4 py-3 ${activeStep >= Number(number) ? "border-emerald-300/40 bg-emerald-300/10" : "border-white/10 bg-white/5"}`}>
-                <span className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${activeStep >= Number(number) ? "bg-emerald-400 text-slate-950" : "bg-white/10 text-slate-300"}`}>{activeStep > Number(number) ? <Check className="h-4 w-4" /> : number}</span>
-                <span className="text-sm font-semibold">{label}</span>
-              </div>
-            ))}
+          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight mb-4">
+            Answer a few project questions. Get a smarter material shortlist.
+          </h1>
+          <p className="text-lg text-slate-600 max-w-3xl">
+            We use your area, depth, intended use, traffic, drainage, style, maintenance, and budget to rank materials that are active and available in your inventory.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+          <div className={`flex items-center p-4 rounded-xl border-2 transition-all ${!questionnaireOpen && !recommendations.length ? 'border-accent-500 bg-white shadow-md' : 'border-slate-200 bg-slate-100 opacity-60'}`}>
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-4 ${!questionnaireOpen && !recommendations.length ? 'bg-accent-500 text-white' : 'bg-slate-300 text-slate-600'}`}>1</div>
+            <div className="font-bold text-slate-900">Project area & depth</div>
+          </div>
+          <div className={`flex items-center p-4 rounded-xl border-2 transition-all ${questionnaireOpen ? 'border-accent-500 bg-white shadow-md' : 'border-slate-200 bg-slate-100 opacity-60'}`}>
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-4 ${questionnaireOpen ? 'bg-accent-500 text-white' : 'bg-slate-300 text-slate-600'}`}>2</div>
+            <div className="font-bold text-slate-900">Project questions</div>
+          </div>
+          <div className={`flex items-center p-4 rounded-xl border-2 transition-all ${recommendations.length > 0 && !questionnaireOpen ? 'border-accent-500 bg-white shadow-md' : 'border-slate-200 bg-slate-100 opacity-60'}`}>
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-4 ${recommendations.length > 0 && !questionnaireOpen ? 'bg-accent-500 text-white' : 'bg-slate-300 text-slate-600'}`}>3</div>
+            <div className="font-bold text-slate-900">Material shortlist</div>
           </div>
         </div>
-      </section>
 
-      <div className="container-custom py-12">
-        <div className="grid gap-8 lg:grid-cols-[1fr_1.1fr]">
-          <div className="space-y-6">
-            <div className="rounded-3xl border border-slate-200 bg-white p-7 shadow-sm">
-              <h2 className="text-xl font-semibold text-slate-950">01. Enter area and application depth</h2>
-              <p className="mt-2 text-sm text-slate-600">Provide your project dimensions. Depth (thickness) helps scale volume accurately for gravel, base courses, and aggregates.</p>
-
-              {handoffPending ? (
-                <div className="mt-6 flex items-center rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-900"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Restoring your project summary and quotation…</div>
-              ) : estimate && !questionnaireOpen && !editingInputs ? (
-                <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
-                  <div className="flex items-center justify-between gap-3"><p className="text-xs font-semibold uppercase tracking-[.15em] text-emerald-700">Project summary</p><button type="button" onClick={() => { setEstimate(null); setRecommendations([]); setEditingInputs(true); }} className="text-xs font-semibold text-emerald-700 hover:text-emerald-900">Edit details</button></div>
-                  <dl className="mt-4 space-y-3 text-sm"><div className="flex justify-between gap-4"><dt className="text-slate-500">Project</dt><dd className="text-right font-semibold text-slate-950">{profile.projectType === "other" && customProject ? customProject : projectTypeLabel}</dd></div><div className="flex justify-between gap-4"><dt className="text-slate-500">Main need</dt><dd className="text-right font-semibold text-slate-950">{useCaseLabel || "Not specified"}</dd></div>{constructionStageLabel && <div className="flex justify-between gap-4"><dt className="text-slate-500">Stage</dt><dd className="text-right font-semibold text-slate-950">{constructionStageLabel}</dd></div>}{constructionMethodLabel && <div className="flex justify-between gap-4"><dt className="text-slate-500">Construction focus</dt><dd className="text-right font-semibold text-slate-950">{constructionMethodLabel}</dd></div>}<div className="flex justify-between gap-4"><dt className="text-slate-500">Effective area</dt><dd className="text-right font-semibold text-slate-950">{computedArea.toFixed(2)} m² · {depthCm || 5} cm</dd></div>{targetBudget && <div className="flex justify-between gap-4"><dt className="text-slate-500">Target budget</dt><dd className="text-right font-semibold text-slate-950">{formatPrice(Number(targetBudget))}</dd></div>}{estimate?.estimatedDuration?.label && <div className="flex justify-between gap-4"><dt className="text-slate-500">Estimated duration</dt><dd className="text-right font-semibold text-slate-950">{estimate.estimatedDuration.label}</dd></div>}</dl>
-                </div>
-              ) : editingInputs && !questionnaireOpen ? (
-                <>
-                  <div className="mt-6 grid gap-4 sm:grid-cols-3">
-                    <label className="text-sm font-medium text-slate-700">Length (m)<input type="number" min="0" step="0.1" value={length} onChange={(e) => setLength(e.target.value)} onInput={(e) => setLength(e.currentTarget.value)} placeholder="e.g. 10" className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-slate-900 outline-none focus:border-emerald-600" /></label>
-                    <label className="text-sm font-medium text-slate-700">Width (m)<input type="number" min="0" step="0.1" value={width} onChange={(e) => setWidth(e.target.value)} onInput={(e) => setWidth(e.currentTarget.value)} placeholder="e.g. 5" className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-slate-900 outline-none focus:border-emerald-600" /></label>
-                    <label className="text-sm font-medium text-slate-700" title="Thickness/height in cm">Depth (cm)<input type="number" min="1" max="100" value={depthCm} onChange={(e) => setDepthCm(e.target.value)} onInput={(e) => setDepthCm(e.currentTarget.value)} placeholder="e.g. 5" className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-slate-900 outline-none focus:border-emerald-600" /></label>
-                  </div>
-                  <div className="mt-4"><label className="text-sm font-medium text-slate-700">Or enter total area (m²)<input type="number" min="0" step="0.1" value={area} onChange={(e) => setArea(e.target.value)} onInput={(e) => setArea(e.currentTarget.value)} placeholder="Direct area input" className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-slate-900 outline-none focus:border-emerald-600" /></label><p className="mt-2 text-xs text-slate-500">Effective calculation area: <strong className="text-emerald-700">{computedArea ? `${computedArea.toFixed(2)} m²` : "—"}</strong></p></div>
-                  <Button onClick={startQuestionnaire} size="lg" className="mt-6 w-full bg-slate-950 text-white hover:bg-slate-900">Start project questionnaire <ArrowRight className="ml-2 h-4 w-4" /></Button>
-                </>
-              ) : null}
-              {error && <p className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">{error}</p>}
-            </div>
-
-            {questionnaireOpen && (
-              <div className="rounded-3xl border border-emerald-300 bg-emerald-950 p-7 text-white shadow-xl animate-[slideDown_.4s_ease-out]">
-                <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[.15em] text-emerald-200">
-                  <span>Question {questionIndex + 1} of {visibleQuestions.length}</span>
-                  <span>{Math.round(((questionIndex + 1) / visibleQuestions.length) * 100)}%</span>
-                </div>
-                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-emerald-400 transition-all" style={{ width: `${((questionIndex + 1) / visibleQuestions.length) * 100}%` }} /></div>
-                <h3 className="mt-6 text-2xl font-semibold">{question.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-300">{question.help}</p>
-
-                <div className="mt-6 grid gap-2.5">
-                  {question.options.map((option) => (
-                    <button type="button" key={option.value} onClick={() => void chooseAnswer(option.value)} className={`rounded-xl border p-3.5 text-left transition ${profile[question.key] === option.value ? "border-emerald-300 bg-emerald-300/20" : "border-white/10 bg-white/5 hover:border-emerald-300/50"}`}>
-                      <span className="flex items-center justify-between text-sm font-semibold"><span>{option.label}</span>{profile[question.key] === option.value && <Check className="h-4 w-4 text-emerald-300" />}</span>
-                      <span className="mt-1 block text-xs text-slate-300">{option.description}</span>
-                    </button>
-                  ))}
-                </div>
-
-                {question.key === "projectType" && profile.projectType === "other" && (
-                  <div className="mt-4">
-                    <label className="block text-xs font-medium text-emerald-200">Please specify what you are building:</label>
-                    <input type="text" value={customProject} onChange={(e) => setCustomProject(e.target.value)} placeholder="e.g. Fixing garden wall" className="mt-2 w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-white outline-none focus:border-emerald-300" />
-                  </div>
-                )}
-                {question.key === "budget" && (
-                  <div className="mt-4 rounded-xl border border-emerald-300/20 bg-emerald-300/10 p-4">
-                    <label className="block text-xs font-medium text-emerald-100">Optional target budget (₱)</label>
-                    <input type="number" min="0" step="1000" value={targetBudget} onChange={(e) => setTargetBudget(e.target.value)} onInput={(e) => setTargetBudget(e.currentTarget.value)} placeholder="e.g. 50000" className="mt-2 w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 focus:border-emerald-300" />
-                    <p className="mt-2 text-xs leading-5 text-emerald-100/80">The final quantity will remain technically based on the project. We will only compare the estimate with this budget.</p>
-                  </div>
-                )}
-
-                <div className="mt-6 flex justify-between gap-3">
-                  <button type="button" onClick={() => { if (questionIndex === 0) { setQuestionnaireOpen(false); setEditingInputs(true); } else setQuestionIndex((c) => c - 1); }} className="text-sm font-semibold text-slate-300 hover:text-white">Back</button>
-                  <button type="button" onClick={() => void nextQuestion()} className="inline-flex items-center rounded-xl bg-emerald-400 px-5 py-2.5 text-sm font-semibold text-slate-950 hover:bg-emerald-300">{questionIndex === visibleQuestions.length - 1 ? "Show my quotation" : "Continue"} <ArrowRight className="ml-2 h-4 w-4" /></button>
-                </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          <div className="lg:col-span-5 space-y-6">
+            <div className={`bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden transition-all ${!questionnaireOpen && !recommendations.length ? 'ring-2 ring-accent-500' : ''}`}>
+              <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+                <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                  <span className="text-accent-500">01.</span> Enter area and application depth
+                </h2>
               </div>
-            )}
+              <div className="p-6 space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Length (m)</label>
+                    <input type="number" value={length} onChange={(e) => { setLength(e.target.value); setArea(""); }} placeholder="e.g. 10" className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 focus:border-accent-500 outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Width (m)</label>
+                    <input type="number" value={width} onChange={(e) => { setWidth(e.target.value); setArea(""); }} placeholder="e.g. 5" className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 focus:border-accent-500 outline-none" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Depth (cm)</label>
+                  <input type="number" value={depthCm} onChange={(e) => setDepthCm(e.target.value)} placeholder="e.g. 5" className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 focus:border-accent-500 outline-none" />
+                </div>
+                <div className="relative flex items-center py-2">
+                  <div className="flex-grow border-t border-slate-100"></div>
+                  <span className="flex-shrink mx-4 text-xs font-bold text-slate-300 uppercase tracking-widest">Or</span>
+                  <div className="flex-grow border-t border-slate-100"></div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Or enter total area (m²)</label>
+                  <input type="number" value={area} onChange={(e) => { setArea(e.target.value); setLength(""); setWidth(""); }} placeholder="Direct area input" className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 focus:border-accent-500 outline-none" />
+                </div>
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Ruler className="w-5 h-5 text-accent-500" />
+                    <div>
+                      <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Effective area:</div>
+                      <div className="text-lg font-bold text-slate-900">{computedArea > 0 ? `${computedArea.toFixed(2)} m²` : "—"}</div>
+                    </div>
+                  </div>
+                </div>
+                <Button onClick={startQuestionnaire} disabled={!computedArea || computedArea <= 0} className="w-full py-4 text-lg font-bold">Start project questionnaire</Button>
+                {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+              </div>
+            </div>
           </div>
 
-          <div className="space-y-6">
-            <div className="rounded-3xl border border-slate-200 bg-white p-7 shadow-sm">
-              <h3 className="text-xl font-semibold text-slate-950">Material System & Quotation</h3>
-              {!estimate ? (
-                <div className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-stone-50 p-10 text-center">
-                  <CircleHelp className="mx-auto h-8 w-8 text-slate-400" />
-                  <p className="mt-3 font-medium text-slate-700">Complete dimensions & questions on the left</p>
-                  <p className="mt-1 text-sm text-slate-500">Matching inventory items, quantities, and pricing will appear here instantly.</p>
+          <div className="lg:col-span-7 space-y-6">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 min-h-[400px] flex flex-col">
+              <h2 className="text-2xl font-bold text-slate-900 mb-6">Material Shortlist & Quotation</h2>
+              {!recommendations.length && !loading && (
+                <div className="flex-grow flex flex-col items-center justify-center text-center py-12">
+                  <CircleHelp className="w-10 h-10 text-slate-300 mb-6" />
+                  <h3 className="text-xl font-bold text-slate-900 mb-2">Complete dimensions & questions on the left</h3>
                 </div>
-              ) : loading ? (
-                <div className="mt-10 flex items-center justify-center p-10 text-slate-600"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Calculating recommendations…</div>
-              ) : (
-                <div className="mt-6 space-y-6">
-                  {estimate.system && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><p className="text-xs font-semibold uppercase tracking-[.15em] text-emerald-700">Recommended material system</p><h4 className="mt-2 text-lg font-semibold text-slate-950">{estimate.system.name}</h4><p className="mt-2 text-sm leading-6 text-emerald-950">{estimate.system.purpose}</p><p className="mt-3 text-xs font-semibold uppercase tracking-[.12em] text-emerald-700">These components are quoted together because each has a different job in the project.</p></div>}
-                  <div className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm">
-                    <p className="text-xs font-semibold uppercase tracking-[.15em] text-emerald-700">Material breakdown · what you are buying</p>
-                    <p className="mt-2 text-sm leading-6 text-slate-600">These are the specific inventory materials included in the recommended {estimate?.system?.name || "project system"}. Quantities include the configured allowance, so customers can see exactly what each line contributes to the estimate.</p>
-                    <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
-                      <table className="w-full min-w-[760px] text-left text-sm">
-                        <thead className="bg-slate-50 text-xs uppercase tracking-[.08em] text-slate-500"><tr><th className="px-4 py-3">Role</th><th className="px-4 py-3">Specific material</th><th className="px-4 py-3">Required quantity</th><th className="px-4 py-3">Pack / coverage</th><th className="px-4 py-3">Unit price</th><th className="px-4 py-3 text-right">Line total</th></tr></thead>
-                        <tbody className="divide-y divide-slate-200">
-                          {recommendations.map((item) => <tr key={`breakdown-${item.id}`} className="align-top"><td className="px-4 py-4"><span className="font-semibold capitalize text-emerald-700">{item.systemRole || "material"}</span>{item.systemRequired && <span className="mt-1 block text-[11px] text-slate-500">Required component</span>}</td><td className="px-4 py-4"><p className="font-semibold text-slate-950">{item.name}</p><p className="mt-1 max-w-xs text-xs leading-5 text-slate-500">{item.description}</p></td><td className="px-4 py-4"><p className="font-bold text-slate-950">{item.estimate.recommendedQuantity} {item.unit}{item.estimate.recommendedQuantity === 1 ? "" : "s"}</p><p className="mt-1 text-xs text-slate-500">Minimum count after allowance</p></td><td className="px-4 py-4 text-xs leading-5 text-slate-600">{item.packageSize && <span className="block font-semibold text-slate-800">{item.packageSize}</span>}{item.coveragePerUnit} m²/{item.unit} · {item.wastagePercent}% allowance</td><td className="px-4 py-4 font-medium text-slate-800">{formatPrice(item.price)} / {item.unit}</td><td className="px-4 py-4 text-right font-bold text-slate-950">{formatPrice(item.estimate.materialTotal)}</td></tr>)}
-                        </tbody>
-                      </table>
+              )}
+              {loading && (
+                <div className="flex-grow flex flex-col items-center justify-center py-12">
+                  <Loader2 className="w-12 h-12 text-accent-500 animate-spin mb-4" />
+                  <p className="text-slate-500 font-medium">Analyzing inventory and calculating requirements...</p>
+                </div>
+              )}
+              {recommendations.length > 0 && !loading && (
+                <div className="space-y-8">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="p-4 bg-accent-50 rounded-xl border border-accent-100">
+                      <div className="text-xs font-bold text-accent-600 uppercase mb-1">Material Total</div>
+                      <div className="text-2xl font-black text-slate-900">{formatPrice(estimate.totals.materialTotal)}</div>
                     </div>
-                    <p className="mt-3 text-xs leading-5 text-slate-500">This is a planning estimate from the available inventory. Merica will confirm final quantities after checking actual site conditions, measurements, stock, and construction method.</p>
+                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                      <div className="text-xs font-bold text-slate-500 uppercase mb-1">Service & Labor</div>
+                      <div className="text-2xl font-black text-slate-900">{formatPrice(estimate.totals.serviceTotal)}</div>
+                    </div>
+                    <div className="p-4 bg-slate-900 rounded-xl text-white">
+                      <div className="text-xs font-bold text-slate-400 uppercase mb-1">Total Estimate</div>
+                      <div className="text-2xl font-black text-white">{formatPrice(estimate.totals.total)}</div>
+                    </div>
                   </div>
 
-                  <div className="grid gap-3">
-                    {recommendations.map((item) => (
-                      <button type="button" key={item.id} onClick={() => void chooseMaterial(item.id)} className={`rounded-2xl border p-4 text-left transition ${selectedRecommendation?.id === item.id ? "border-emerald-600 bg-emerald-50/50 shadow-sm" : "border-slate-200 hover:border-emerald-300"}`}>
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-start gap-3"><div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-slate-100">{item.image ? <img src={item.image} alt={item.name} className="h-full w-full object-cover" /> : <PackageCheck className="m-4 h-8 w-8 text-slate-400" />}</div><div><p className="font-semibold text-slate-950">{item.name}</p><p className="mt-1 text-[11px] font-bold uppercase tracking-[.12em] text-emerald-700">{item.systemRole || "project material"}{item.systemRequired ? " · required component" : ""}</p></div></div>
-                            <div className="mt-3 flex items-baseline gap-2"><span className="text-2xl font-bold text-emerald-800">{item.estimate.recommendedQuantity}</span><span className="text-sm font-semibold text-emerald-800">{item.unit} estimated</span></div>
-                            <p className="mt-1 text-xs leading-5 text-slate-600">{item.packageSize ? `${item.packageSize} · ` : ""}{item.purpose || `Based on ${item.coveragePerUnit} m²/${item.unit} coverage and ${item.wastagePercent}% allowance`}</p>
-                            {item.matchReasons?.length ? <p className="mt-2 text-xs font-medium text-emerald-800">{item.matchReasons.join(" · ")}</p> : null}
-                          </div>
-                          <p className="whitespace-nowrap text-base font-bold text-slate-950">{formatPrice(item.estimate.materialTotal)}</p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="rounded-2xl border border-sky-200 bg-sky-50 p-5"><p className="text-xs font-semibold uppercase tracking-[.15em] text-sky-700">Optional style direction</p><p className="mt-2 text-sm leading-6 text-sky-950">{styleGuidance}</p><p className="mt-2 text-xs leading-5 text-sky-800">For repairs and custom work, this is guidance only because the existing site condition and exact finish cannot be verified from the questionnaire.</p></div>
-                  {estimate?.estimatedDuration && <div className="rounded-2xl border border-violet-200 bg-violet-50 p-5"><p className="text-xs font-semibold uppercase tracking-[.15em] text-violet-700">Estimated project duration</p><p className="mt-2 text-lg font-semibold text-violet-950">{estimate.estimatedDuration.label}</p><p className="mt-1 text-xs leading-5 text-violet-800">{estimate.estimatedDuration.basis} Final scheduling is subject to site conditions and team confirmation.</p></div>}
-                  {estimate?.budgetComparison && <div className={`rounded-2xl border p-5 ${estimate.budgetComparison.status === "over_budget" ? "border-amber-200 bg-amber-50" : "border-emerald-200 bg-emerald-50"}`}><p className={`text-xs font-semibold uppercase tracking-[.15em] ${estimate.budgetComparison.status === "over_budget" ? "text-amber-700" : "text-emerald-700"}`}>Budget check</p><p className={`mt-2 text-sm leading-6 ${estimate.budgetComparison.status === "over_budget" ? "text-amber-950" : "text-emerald-950"}`}>{estimate.budgetComparison.message}</p>{estimate.budgetComparison.status === "over_budget" && <p className="mt-2 text-xs leading-5 text-amber-800">Possible next steps: compare a lower-cost available material, reduce optional services, or request an official review. Technical quantities remain unchanged.</p>}</div>}
-
-                  <div className="rounded-2xl border border-slate-200 p-5">
-                    <label className="block text-sm font-semibold text-slate-800">Select delivery zone</label>
-                    <select value={deliveryZoneId} onChange={(e) => { setDeliveryZoneId(e.target.value); if (estimate) void calculate(selectedProductId, selectedServiceIds, profile); }} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm">
-                      <option value="">Select later</option>
-                      {deliveryZones.map((z) => <option key={z.id} value={z.id}>{z.name} · {formatPrice(z.fee)}</option>)}
-                    </select>
-
-                    <label className="mt-4 block text-sm font-semibold text-slate-800">Delivery city or project location</label>
-                    <input type="text" value={deliveryCity} onChange={(e) => setDeliveryCity(e.target.value)} placeholder="e.g. Lipa City, Batangas" className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
-                  </div>
-
-                  {services.length > 0 && (
-                    <div className="rounded-2xl border border-slate-200 p-5">
-                      <p className="text-sm font-semibold text-slate-800">Optional project services</p>
-                      <div className="mt-3 grid gap-2">
-                        {services.filter((s) => s.recommended || selectedServiceIds.includes(s.id)).slice(0, 6).map((s) => (
-                          <button type="button" key={s.id} onClick={() => void toggleService(s.id)} className={`rounded-xl border p-3 text-left ${selectedServiceIds.includes(s.id) ? "border-emerald-600 bg-emerald-50" : "border-slate-200"}`}>
-                            <div className="flex items-center justify-between text-sm font-semibold text-slate-900">
-                              <span>{s.name}</span>
-                              <span className="text-xs text-emerald-700">{formatPrice(s.price)}{s.pricingModel === "per_sqm" ? "/m²" : ""}</span>
-                            </div>
-                            <p className="mt-1 text-xs text-slate-500">{s.recommendationReason || s.description}</p>
-                          </button>
+                  <div className="border border-slate-200 rounded-xl overflow-hidden">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-200">
+                          <th className="px-4 py-3 text-xs font-black text-slate-500 uppercase tracking-wider">Product</th>
+                          <th className="px-4 py-3 text-xs font-black text-slate-500 uppercase tracking-wider">Quantity</th>
+                          <th className="px-4 py-3 text-xs font-black text-slate-500 uppercase tracking-wider text-right">Line Total</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {recommendations.map((rec) => (
+                          <tr key={rec.id} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-4 py-4">
+                              <div className="font-bold text-slate-900">{rec.name}</div>
+                              <div className="text-[10px] font-bold text-accent-600 uppercase tracking-tighter mt-0.5">{rec.systemRole}</div>
+                            </td>
+                            <td className="px-4 py-4 font-mono font-bold text-slate-700">{rec.estimate.recommendedQuantity} {rec.unit}s</td>
+                            <td className="px-4 py-4 text-right font-bold text-slate-900">{formatPrice(rec.estimate.materialTotal)}</td>
+                          </tr>
                         ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="rounded-3xl bg-slate-950 p-6 text-white">
-                    <div className="flex justify-between text-sm text-slate-300"><span>Materials ({selectedRecommendation?.name || "Selected"})</span><span>{formatPrice(currentTotals.materialTotal)}</span></div>
-                    <div className="mt-2 flex justify-between text-sm text-slate-300"><span>Delivery</span><span>{formatPrice(currentTotals.deliveryFee)}</span></div>
-                    <div className="mt-2 flex justify-between text-sm text-slate-300"><span>Services</span><span>{formatPrice(currentTotals.serviceTotal)}</span></div>
-                    <div className="mt-4 flex justify-between border-t border-white/10 pt-4 text-lg font-bold"><span>Total estimate</span><span className="text-2xl text-emerald-300">{formatPrice(currentTotals.total)}</span></div>
-
-                    <div className="mt-6">
-                      <label className="block text-xs font-semibold uppercase tracking-[.15em] text-slate-400">Project notes for quotation</label>
-                      <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add any specific site instructions or delivery details..." className="mt-2 w-full rounded-xl border border-white/25 bg-white/10 p-3 text-sm text-white outline-none focus:border-emerald-300" rows={2} />
-                    </div>
-
-                    <div className="mt-6 flex flex-col gap-3">
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <Button onClick={() => void requestQuotation("official_review")} disabled={submitting} size="lg" className="bg-emerald-400 text-slate-950 hover:bg-emerald-300">{submittingAction === "official_review" ? "Submitting review…" : "Request official review"} <ArrowRight className="ml-2 h-4 w-4" /></Button>
-                        <Button onClick={() => void requestQuotation("site_visit")} disabled={submitting} size="lg" variant="outline" className="border-white/30 bg-white/10 text-white hover:bg-white/20">{submittingAction === "site_visit" ? "Requesting visit…" : "Request a site visit"}</Button>
-                      </div>
-                      <Button onClick={() => void requestQuotation("quote_list")} disabled={submitting} variant="outline" className="w-full border-emerald-300/30 bg-white/5 text-emerald-300 hover:bg-white/10">
-                        {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PackageCheck className="mr-2 h-4 w-4" />}
-                        {submittingAction === "quote_list" ? "Saving quotation…" : "Add materials to quote list"}
-                      </Button>
-                    </div>
-
-                    <div className="mt-8 rounded-2xl bg-white/5 p-6 border border-white/10">
-                      <h4 className="font-semibold text-white flex items-center gap-2"><Sparkles className="h-4 w-4 text-emerald-400" /> What happens next?</h4>
-                      <ul className="mt-4 space-y-4 text-sm text-slate-300">
-                        <li className="flex gap-3"><div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-400/20 text-emerald-300 font-bold text-[10px]">1</div><span><strong>Team Review:</strong> Our consultants will review your project dimensions and material choice to ensure they fit the intended use.</span></li>
-                        <li className="flex gap-3"><div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-400/20 text-emerald-300 font-bold text-[10px]">2</div><span><strong>Stock Confirmation:</strong> We check real-time inventory at our Lipa City yard for the exact quantity needed.</span></li>
-                        <li className="flex gap-3"><div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-400/20 text-emerald-300 font-bold text-[10px]">3</div><span><strong>Final Quote:</strong> You&apos;ll receive an official PDF quotation with a confirmed delivery schedule and payment instructions.</span></li>
-                      </ul>
-                    </div>
-
-                    <p className="mt-4 text-xs leading-5 text-slate-400 italic">Use official review for a material and service confirmation. Choose a site visit when the existing conditions, wall, terrace, or repair need to be checked in person.</p>
-                    {message && <div className="mt-4 rounded-xl border border-emerald-300/30 bg-emerald-400/20 p-3 text-sm text-emerald-200"><p>{message}</p>{submittedQuoteId && <div className="mt-3 flex flex-wrap gap-3"><a href="/account/quotes" className="font-semibold underline">Track this request</a><a href={`/api/quotes/${submittedQuoteId}/pdf`} target="_blank" rel="noreferrer" className="font-semibold underline">Download project PDF</a></div>}</div>}
+                      </tbody>
+                    </table>
                   </div>
+
+                  <div className="pt-6 border-t border-slate-100 flex flex-wrap gap-3">
+                    <Button onClick={() => handleFollowUp("official_review")} loading={submittingAction === "official_review"} className="flex-1 min-w-[200px] py-4 bg-slate-900 text-white hover:bg-slate-800">Request Official Review</Button>
+                    <Button onClick={() => handleFollowUp("site_visit")} loading={submittingAction === "site_visit"} variant="outline" className="flex-1 min-w-[200px] py-4 border-2 border-slate-200 hover:bg-slate-50">Book Site Visit</Button>
+                    <Button onClick={() => handleFollowUp("quote_list")} loading={submittingAction === "quote_list"} variant="outline" title="Add to Quote List" className="px-6 py-4 border-2 border-slate-200 hover:bg-slate-50 flex items-center justify-center">
+                      <Check className="w-6 h-6 text-accent-600" />
+                    </Button>
+                  </div>
+                  <p className="mt-4 text-[10px] text-slate-400 italic text-center">{DISCLAIMER}</p>
                 </div>
               )}
             </div>
           </div>
         </div>
       </div>
-    </main>
+      
+      {questionnaireOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
+            <div className="bg-slate-900 p-8 text-white relative overflow-hidden">
+              <div className="relative z-10">
+                <div className="flex items-center gap-2 text-accent-400 text-xs font-bold uppercase tracking-widest mb-2">
+                  <Sparkles className="w-4 h-4" />
+                  Project Profiling
+                </div>
+                <h3 className="text-3xl font-black mb-2">Step {questionIndex + 1} of {visibleQuestions.length}</h3>
+                <p className="text-slate-400 text-sm max-w-md">We&apos;re matching your project needs with our active inventory roles.</p>
+              </div>
+              <div className="absolute top-0 right-0 w-64 h-64 bg-accent-500/10 rounded-full -mr-20 -mt-20 blur-3xl"></div>
+            </div>
+
+            <div className="p-8">
+              <div className="mb-8">
+                <h4 className="text-xl font-bold text-slate-900 mb-2">{visibleQuestions[questionIndex].label}</h4>
+                {visibleQuestions[questionIndex].description && <p className="text-slate-500 text-sm">{visibleQuestions[questionIndex].description}</p>}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {visibleQuestions[questionIndex].options.map((option) => (
+                  <button key={option.value} onClick={() => chooseAnswer(option.value)} className="group text-left p-5 rounded-2xl border-2 border-slate-100 hover:border-accent-500 hover:bg-accent-50/50 transition-all duration-200">
+                    <div className="font-bold text-slate-900 group-hover:text-accent-700 transition-colors">{option.label}</div>
+                    {option.description && <div className="text-xs text-slate-400 mt-1 leading-relaxed">{option.description}</div>}
+                  </button>
+                ))}
+              </div>
+
+              {visibleQuestions[questionIndex].key === "projectType" && (
+                <div className="mt-6 pt-6 border-t border-slate-100">
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Something else?</label>
+                  <div className="flex gap-2">
+                    <input type="text" value={customProject} onChange={(e) => setCustomProject(e.target.value)} placeholder="e.g. Fixing a backyard wall" className="flex-1 px-4 py-3 rounded-xl border-2 border-slate-100 focus:border-accent-500 outline-none" />
+                    <Button onClick={() => chooseAnswer("other")} className="px-6">Next</Button>
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-8 flex items-center justify-between">
+                <button onClick={() => setQuestionnaireOpen(false)} className="text-sm font-bold text-slate-400 hover:text-slate-600">Cancel & Exit</button>
+                <div className="flex gap-1">
+                  {visibleQuestions.map((_, i) => (
+                    <div key={i} className={`w-8 h-1.5 rounded-full transition-all ${i === questionIndex ? 'bg-accent-500 w-12' : i < questionIndex ? 'bg-slate-900' : 'bg-slate-100'}`}></div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
+
+const EstimatorPage = dynamic(() => Promise.resolve(EstimatorContent), {
+  ssr: false,
+  loading: () => <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="w-12 h-12 text-accent-500 animate-spin" /></div>
+});
+
+export default EstimatorPage;
