@@ -499,9 +499,9 @@ function EstimatorContent() {
                   </div>
 
                   <div className="pt-6 border-t border-slate-100 flex flex-wrap gap-3">
-                    <Button onClick={() => handleFollowUp("official_review")} loading={submittingAction === "official_review"} className="flex-1 min-w-[200px] py-4 bg-slate-900 text-white hover:bg-slate-800">Request Official Review</Button>
-                    <Button onClick={() => handleFollowUp("site_visit")} loading={submittingAction === "site_visit"} variant="outline" className="flex-1 min-w-[200px] py-4 border-2 border-slate-200 hover:bg-slate-50">Book Site Visit</Button>
-                    <Button onClick={() => handleFollowUp("quote_list")} loading={submittingAction === "quote_list"} variant="outline" title="Add to Quote List" className="px-6 py-4 border-2 border-slate-200 hover:bg-slate-50 flex items-center justify-center">
+                    <Button onClick={() => handleFollowUp("official_review")} isLoading={submittingAction === "official_review"} className="flex-1 min-w-[200px] py-4 bg-slate-900 text-white hover:bg-slate-800">Request Official Review</Button>
+                    <Button onClick={() => handleFollowUp("site_visit")} isLoading={submittingAction === "site_visit"} variant="outline" className="flex-1 min-w-[200px] py-4 border-2 border-slate-200 hover:bg-slate-50">Book Site Visit</Button>
+                    <Button onClick={() => handleFollowUp("quote_list")} isLoading={submittingAction === "quote_list"} variant="outline" title="Add to Quote List" className="px-6 py-4 border-2 border-slate-200 hover:bg-slate-50 flex items-center justify-center">
                       <Check className="w-6 h-6 text-accent-600" />
                     </Button>
                   </div>

@@ -166,23 +166,11 @@ export default function HomeEstimatorWizard() {
     setQuestionIndex(0);
   };
 
-  const chooseAnswer = async (value: string) => {
-    const updatedProfile = { ...profile, [question.key]: value };
-    setProfile(updatedProfile);
+  const chooseAnswer = (value: string) => {
+    // Selecting an option must not advance the wizard. The customer should be
+    // able to review the selected answer and use the explicit Continue button.
+    setProfile((current) => ({ ...current, [question.key]: value }));
     setError("");
-
-    if (value === "other" && question.key === "projectType") {
-      // Stay on question to let them type custom text
-      return;
-    }
-
-    if (questionIndex < visibleQuestions.length - 1) {
-      setQuestionIndex((current) => current + 1);
-    } else {
-      setQuestionnaireOpen(false);
-      setEditingInputs(false);
-      await calculate(selectedProductId, selectedServiceIds, deliveryZoneId, updatedProfile);
-    }
   };
 
   const nextQuestion = async () => {
@@ -298,7 +286,7 @@ export default function HomeEstimatorWizard() {
                       <button
                         type="button"
                         key={option.value}
-                        onClick={() => void chooseAnswer(option.value)}
+                        onClick={() => chooseAnswer(option.value)}
                         className={`rounded-xl border p-3 text-left transition ${profile[question.key] === option.value ? "border-emerald-300 bg-emerald-300/15" : "border-white/10 bg-white/5 hover:border-emerald-300/50"}`}
                       >
                         <span className="flex items-center justify-between gap-3 text-sm font-semibold">
