@@ -312,17 +312,30 @@ function EstimatorContent() {
 
   const visibleQuestions = QUESTIONS.filter(q => !q.when || q.when(profile));
 
-  const chooseAnswer = async (value: string) => {
+  const chooseAnswer = (value: string) => {
     const question = visibleQuestions[questionIndex];
-    const newProfile = { ...profile, [question.key]: value };
-    setProfile(newProfile);
+    setProfile((current) => ({ ...current, [question.key]: value }));
+    setError("");
+  };
 
-    if (questionIndex < visibleQuestions.length - 1) {
-      setQuestionIndex(questionIndex + 1);
-    } else {
-      setQuestionnaireOpen(false);
-      await calculate(selectedProductId, selectedServiceIds, newProfile);
+  const continueQuestionnaire = async (overrideProfile?: ProjectProfile) => {
+    const question = visibleQuestions[questionIndex];
+    const workingProfile = overrideProfile || profile;
+    const selectedAnswer = workingProfile[question.key];
+
+    if (!selectedAnswer) {
+      setError("Select an answer before continuing.");
+      return;
     }
+
+    setError("");
+    if (questionIndex < visibleQuestions.length - 1) {
+      setQuestionIndex((current) => current + 1);
+      return;
+    }
+
+    setQuestionnaireOpen(false);
+    await calculate(selectedProductId, selectedServiceIds, workingProfile);
   };
 
   const handleFollowUp = async (action: FollowUpAction) => {
@@ -548,18 +561,39 @@ function EstimatorContent() {
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Something else?</label>
                   <div className="flex gap-2">
                     <input type="text" value={customProject} onChange={(e) => setCustomProject(e.target.value)} placeholder="e.g. Fixing a backyard wall" className="flex-1 px-4 py-3 rounded-xl border-2 border-slate-100 focus:border-accent-500 outline-none" />
-                    <Button onClick={() => chooseAnswer("other")} className="px-6">Next</Button>
+                    <Button
+                      onClick={() => {
+                        if (!customProject.trim()) {
+                          setError("Describe your custom project before continuing.");
+                          return;
+                        }
+                        const nextProfile = { ...profile, projectType: "other", customProject: customProject.trim() };
+                        setProfile(nextProfile);
+                        void continueQuestionnaire(nextProfile);
+                      }}
+                      className="px-6"
+                    >Next</Button>
                   </div>
                 </div>
               )}
 
-              <div className="mt-8 flex items-center justify-between">
-                <button onClick={() => setQuestionnaireOpen(false)} className="text-sm font-bold text-slate-400 hover:text-slate-600">Cancel & Exit</button>
+              <div className="mt-8 flex flex-wrap items-center justify-between gap-4">
+                <button
+                  type="button"
+                  onClick={() => questionIndex === 0 ? setQuestionnaireOpen(false) : setQuestionIndex((current) => current - 1)}
+                  className="text-sm font-bold text-slate-400 hover:text-slate-600"
+                >
+                  {questionIndex === 0 ? "Cancel & Exit" : "Back"}
+                </button>
                 <div className="flex gap-1">
                   {visibleQuestions.map((_, i) => (
                     <div key={i} className={`w-8 h-1.5 rounded-full transition-all ${i === questionIndex ? 'bg-accent-500 w-12' : i < questionIndex ? 'bg-slate-900' : 'bg-slate-100'}`}></div>
                   ))}
                 </div>
+                <Button type="button" onClick={() => void continueQuestionnaire()} disabled={loading} className="min-w-[140px]">
+                  {questionIndex === visibleQuestions.length - 1 ? "Show my quotation" : "Continue"}
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
               </div>
             </div>
           </div>

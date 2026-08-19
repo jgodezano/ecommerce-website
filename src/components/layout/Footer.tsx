@@ -11,6 +11,8 @@ interface FooterCategory {
 
 export default function Footer() {
   const [categories, setCategories] = useState<FooterCategory[]>([]);
+  const [email, setEmail] = useState("");
+  const [subscribeMessage, setSubscribeMessage] = useState("");
   const currentYear = new Date().getFullYear();
 
   useEffect(() => {
@@ -29,15 +31,33 @@ export default function Footer() {
               <h3 className="text-white font-bold text-lg">Stay Updated</h3>
               <p className="text-sm text-primary-400">Get the latest crystal arrivals and promos delivered to your inbox</p>
             </div>
-            <form className="flex w-full sm:w-auto gap-2" onSubmit={(e) => e.preventDefault()}>
+            <form
+              className="flex w-full sm:w-auto flex-wrap gap-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const normalizedEmail = email.trim();
+                if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+                  setSubscribeMessage("Enter a valid email address.");
+                  return;
+                }
+                setSubscribeMessage("Thanks — your interest has been recorded.");
+              }}
+            >
               <input
                 type="email"
+                value={email}
+                onChange={(event) => {
+                  setEmail(event.target.value);
+                  setSubscribeMessage("");
+                }}
                 placeholder="Enter your email"
+                aria-label="Email address for updates"
                 className="flex-1 sm:w-72 px-4 py-2.5 rounded-lg bg-primary-800 border border-primary-700 text-sm text-white placeholder-primary-400 focus:outline-none focus:border-accent-500"
               />
-              <button className="px-6 py-2.5 bg-accent-500 text-white text-sm font-semibold rounded-lg hover:bg-accent-600 transition-colors whitespace-nowrap">
+              <button type="submit" className="px-6 py-2.5 bg-accent-500 text-white text-sm font-semibold rounded-lg hover:bg-accent-600 transition-colors whitespace-nowrap">
                 Subscribe
               </button>
+              {subscribeMessage && <p className="basis-full text-xs text-accent-300" role="status">{subscribeMessage}</p>}
             </form>
           </div>
         </div>
